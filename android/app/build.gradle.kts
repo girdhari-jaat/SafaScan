@@ -40,7 +40,6 @@ android {
                 keyAlias = properties.getProperty("key.alias") ?: "key0"
                 keyPassword = properties.getProperty("key.alias.password") ?: "password"
             } else {
-                // Fallback to environment variables (ideal for CI/CD like GitHub Actions) or local defaults
                 val envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
                 storeFile = if (envStoreFile != null) file(envStoreFile) else file("release-key.jks")
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "password"
@@ -53,12 +52,16 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = true // ✅ Wapis true
+            isShrinkResources = true 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro" // 👈 Ye file ab rules rakhegi
             )
+        }
+        getByName("debug") {
+            isMinifyEnabled = false // Debug me fast build ke liye off
+            applicationIdSuffix = ".debug"
         }
     }
 
@@ -73,12 +76,10 @@ android {
 
     buildFeatures {
         viewBinding = true
-        // Enable Jetpack Compose permanently
         compose = true
     }
 
     composeOptions {
-        // Kotlin 1.9.24 compatible compiler extension version
         kotlinCompilerExtensionVersion = "1.5.14"
     }
 }
