@@ -25,15 +25,26 @@ jobs:
       with:
         gradle-version: '8.5'
 
-    - name: Build Debug APK
+    - name: Build Debug APK and Test APK
       run: |
         cd android
         if [ -f "gradlew" ]; then
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon
         else
-          gradle assembleDebug --no-daemon
+          gradle assembleDebug assembleDebugAndroidTest --no-daemon
         fi
+
+    - name: Run Instrumentation Tests on Android Emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        target: default
+        arch: x86_64
+        disable-animations: true
+        script: |
+          cd android
+          ./gradlew connectedAndroidTest --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4

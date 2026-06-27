@@ -28,7 +28,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
         val DOUBLE_FOCUS = booleanPreferencesKey("double_focus")
     }
 
-    val scannerModeFlow: Flow<ScannerMode> = context.dataStore.data
+    private val safeData: Flow<Preferences> = context.dataStore.data
         .catch { exception ->
             if (exception is IOException) {
                 emit(emptyPreferences())
@@ -36,30 +36,36 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
                 throw exception
             }
         }
+
+    val scannerModeFlow: Flow<ScannerMode> = safeData
         .map { preferences ->
             val modeName = preferences[PreferencesKeys.SCANNER_MODE] ?: ScannerMode.CARD.name
-            ScannerMode.valueOf(modeName)
+            try {
+                ScannerMode.valueOf(modeName)
+            } catch (e: IllegalArgumentException) {
+                ScannerMode.CARD
+            }
         }
 
-    val autoCropFlow: Flow<Boolean> = context.dataStore.data
+    val autoCropFlow: Flow<Boolean> = safeData
         .map { preferences -> preferences[PreferencesKeys.AUTO_CROP] ?: true }
 
-    val flashOnFlow: Flow<Boolean> = context.dataStore.data
+    val flashOnFlow: Flow<Boolean> = safeData
         .map { preferences -> preferences[PreferencesKeys.FLASH_ON] ?: false }
 
-    val dpiFlow: Flow<Float> = context.dataStore.data
+    val dpiFlow: Flow<Float> = safeData
         .map { preferences -> preferences[PreferencesKeys.DPI] ?: 300f }
 
-    val jpegQualityFlow: Flow<Float> = context.dataStore.data
+    val jpegQualityFlow: Flow<Float> = safeData
         .map { preferences -> preferences[PreferencesKeys.JPEG_QUALITY] ?: 80f }
 
-    val pdfFilenameFlow: Flow<String> = context.dataStore.data
+    val pdfFilenameFlow: Flow<String> = safeData
         .map { preferences -> preferences[PreferencesKeys.PDF_FILENAME] ?: "Scan_Document" }
 
-    val pageSizeFlow: Flow<String> = context.dataStore.data
+    val pageSizeFlow: Flow<String> = safeData
         .map { preferences -> preferences[PreferencesKeys.PAGE_SIZE] ?: "A4" }
 
-    val doubleFocusFlow: Flow<Boolean> = context.dataStore.data
+    val doubleFocusFlow: Flow<Boolean> = safeData
         .map { preferences -> preferences[PreferencesKeys.DOUBLE_FOCUS] ?: false }
 
     suspend fun setScannerMode(mode: ScannerMode) {
