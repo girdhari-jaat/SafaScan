@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
 
     steps:
     - name: Checkout Repository
@@ -27,7 +30,6 @@ jobs:
 
     - name: Build Debug APK and Test APK
       run: |
-        cd android
         if [ -f "gradlew" ]; then
           chmod +x gradlew
           ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon
@@ -42,8 +44,8 @@ jobs:
         target: default
         arch: x86_64
         disable-animations: true
+        working-directory: android
         script: |
-          cd android
           ./gradlew connectedAndroidTest --no-daemon
 
     - name: Upload APK Artifact
