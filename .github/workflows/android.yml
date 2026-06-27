@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 25 # ✅ Good, hang nahi karega
     defaults:
       run:
         working-directory: android
@@ -28,24 +28,22 @@ jobs:
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.5'
-        build-root-directory: android
+        # build-root-directory hata diya ✅
 
     - name: Build Debug APK and Test APK
-      run: |
-        gradle assembleDebug assembleDebugAndroidTest --no-daemon
+      run: gradle assembleDebug assembleDebugAndroidTest --no-daemon
 
     - name: Run Instrumentation Tests on Android Emulator
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 34
-        target: default
+        api-level: 34 # ✅ API Level match ho gaya
+        target: default # ✅ Halka image
         arch: x86_64
-        profile: Nexus 6
+        profile: Nexus 6 # ✅ Fastest profile
         disable-animations: true
         working-directory: android
         emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim -memory 2048
-        script: |
-          gradle connectedAndroidTest --no-daemon --stacktrace
+        script: gradle connectedAndroidTest --no-daemon --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
