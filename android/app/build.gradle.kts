@@ -78,7 +78,7 @@ android {
     }
 
     composeOptions {
-        // Kotlin 1.9.22 compatible compiler extension version
+        // Kotlin 1.9.24 compatible compiler extension version
         kotlinCompilerExtensionVersion = "1.5.14"
     }
 }
