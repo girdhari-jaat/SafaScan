@@ -1,16 +1,28 @@
-# ML Kit
--keep class com.google.mlkit.** { *; }
--keep interface com.google.mlkit.** { *; }
+# Add project specific ProGuard rules here.
 
-# Hilt / Dagger
--keep class dagger.** { *; }
--keep class hilt_aggregated_deps.** { *; }
+# Hilt
 -keep class dagger.hilt.** { *; }
--keep class javax.inject.** { *; }
+-keep class * extends dagger.hilt.internal.ComponentManager { *; }
+-keep class * extends dagger.hilt.internal.ComponentManager$ComponentImpl { *; }
 
-# Coroutines
--keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
--keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
--keepclassmembernames class kotlinx.** {
-    volatile <fields>;
-}
+# Compose
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
+
+# CameraX
+-keep class androidx.camera.** { *; }
+-dontwarn androidx.camera.**
+
+# ML Kit
+-dontwarn com.google.mlkit.**
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_barcode.** { *; }
+
+# DataStore
+-keep class androidx.datastore.** { *; }
+
+# Kotlin Coroutines
+-dontwarn kotlinx.coroutines.**
+
+# Keep annotations
+-keepattributes *Annotation*, InnerClasses, EnclosingMethod
