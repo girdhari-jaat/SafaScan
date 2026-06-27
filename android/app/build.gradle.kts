@@ -19,16 +19,13 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // SIGNING SKIP FOR TEST
+    // SIGNING SKIP FOR TEST - Debug key use ho raha
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("debug") // Debug key se sign
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            signingConfig = signingConfigs.getByName("debug") 
+            isMinifyEnabled = false  // ✅ CRASH FIX: R8 Band
+            isShrinkResources = false // ✅ CRASH FIX: Resource shrink band
+            // proguard file ab use nahi ho raha
         }
         getByName("debug") {
             isMinifyEnabled = false
