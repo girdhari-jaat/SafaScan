@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import com.safescan.scanner.ScannerViewModel
 import com.safescan.data.ScannerMode
@@ -113,7 +114,7 @@ fun CardScanScreen(
                     ) {
                         if (slot.bitmap != null) {
                             androidx.compose.foundation.Image(
-                                bitmap = androidx.compose.ui.graphics.asImageBitmap(slot.bitmap),
+                                bitmap = asImageBitmap(slot.bitmap),
                                 contentDescription = "Slot ${index + 1}",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
