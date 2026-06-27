@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: android
@@ -29,26 +30,22 @@ jobs:
         gradle-version: '8.5'
         build-root-directory: android
 
-    - name: Generate Gradle Wrapper
-      run: |
-        gradle wrapper
-        chmod +x gradlew
-
     - name: Build Debug APK and Test APK
       run: |
-        ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon
+        gradle assembleDebug assembleDebugAndroidTest --no-daemon
 
     - name: Run Instrumentation Tests on Android Emulator
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 33
-        target: google_apis
-        arch: x86_64
-        profile: pixel_6
+        api-level: 29
+        target: default
+        arch: x86
+        profile: Nexus 6
         disable-animations: true
         working-directory: android
+        emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim -memory 2048
         script: |
-          ./gradlew connectedAndroidTest --no-daemon
+          gradle connectedAndroidTest --no-daemon --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
