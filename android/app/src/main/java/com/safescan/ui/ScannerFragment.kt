@@ -32,6 +32,8 @@ import com.safescan.scanner.ScannerViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.safescan.ui.SlotsScreen
 import com.safescan.ui.theme.SafeScanTheme
