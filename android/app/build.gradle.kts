@@ -73,10 +73,12 @@ android {
 
     buildFeatures {
         viewBinding = true
+        // Enable Jetpack Compose permanently
         compose = true
     }
 
     composeOptions {
+        // Kotlin 1.9.22 compatible compiler extension version
         kotlinCompilerExtensionVersion = "1.5.10"
     }
 }
@@ -113,6 +115,7 @@ dependencies {
     // Compose
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.activity:activity-compose:1.8.2")
