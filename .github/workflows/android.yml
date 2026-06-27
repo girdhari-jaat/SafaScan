@@ -37,9 +37,9 @@ jobs:
     - name: Run Instrumentation Tests on Android Emulator
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 29
+        api-level: 34
         target: default
-        arch: x86
+        arch: x86_64
         profile: Nexus 6
         disable-animations: true
         working-directory: android
