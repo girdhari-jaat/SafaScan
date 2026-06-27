@@ -2,9 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -21,7 +21,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         java-version: '17'
-        distribution: 'zulu'
+        distribution: 'temurin'
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
@@ -29,13 +29,7 @@ jobs:
         gradle-version: '8.5'
 
     - name: Build Debug APK and Test APK
-      run: |
-        if [ -f "gradlew" ]; then
-          chmod +x gradlew
-          ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon
-        else
-          gradle assembleDebug assembleDebugAndroidTest --no-daemon
-        fi
+      run: gradle assembleDebug assembleDebugAndroidTest --no-daemon
 
     - name: Run Instrumentation Tests on Android Emulator
       uses: reactivecircus/android-emulator-runner@v2
@@ -44,9 +38,7 @@ jobs:
         target: default
         arch: x86_64
         disable-animations: true
-        working-directory: android
-        script: |
-          ./gradlew connectedAndroidTest --no-daemon
+        script: gradle connectedAndroidTest --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
