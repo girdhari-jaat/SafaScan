@@ -154,46 +154,48 @@ class ScannerFragment : Fragment() {
 
     private fun startCamera() {
         if (!isAdded) return
-        if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        val currentContext = context ?: return
+        if (ContextCompat.checkSelfPermission(currentContext, android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             return
         }
 
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(currentContext)
 
         cameraProviderFuture.addListener({
-            val context = context ?: return@addListener
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-            val mode = viewModel.currentMode.value
-
-            // 1. Dynamic Hardware Negotiation & Mood Alignment (from gemini.md rules)
-            val captureMode = when (mode) {
-                com.safescan.data.ScannerMode.CARD -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY // Fast capture, lower latency
-                com.safescan.data.ScannerMode.GRID -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
-                com.safescan.data.ScannerMode.DOCUMENT -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY // Standard balanced
-                com.safescan.data.ScannerMode.BOOK -> ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY // High-quality detail focus
-            }
-
-            val targetFrameRateRange = when (mode) {
-                com.safescan.data.ScannerMode.CARD -> Range(60, 60) // High frame rate for fast card detection
-                else -> Range(30, 30) // Standard frame rate for high detail documents
-            }
-
-            val previewBuilder = Preview.Builder()
-            // setTargetFrameRate is removed to avoid potential runtime crashes on unsupported devices
-            // as it is only natively supported in CameraX 1.4.0+ or via specific interop
-            
-            val preview = previewBuilder.build().also {
-                it.setSurfaceProvider(binding.previewView.surfaceProvider)
-            }
-
-            imageCapture = ImageCapture.Builder()
-                .setCaptureMode(captureMode)
-                .setFlashMode(if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF)
-                .build()
-
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
             try {
+                val fragmentContext = context ?: return@addListener
+                val binding = _binding ?: return@addListener
+                val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+                val mode = viewModel.currentMode.value
+
+                // 1. Dynamic Hardware Negotiation & Mood Alignment (from gemini.md rules)
+                val captureMode = when (mode) {
+                    com.safescan.data.ScannerMode.CARD -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY // Fast capture, lower latency
+                    com.safescan.data.ScannerMode.GRID -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
+                    com.safescan.data.ScannerMode.DOCUMENT -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY // Standard balanced
+                    com.safescan.data.ScannerMode.BOOK -> ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY // High-quality detail focus
+                }
+
+                val targetFrameRateRange = when (mode) {
+                    com.safescan.data.ScannerMode.CARD -> Range(60, 60) // High frame rate for fast card detection
+                    else -> Range(30, 30) // Standard frame rate for high detail documents
+                }
+
+                val previewBuilder = Preview.Builder()
+                // setTargetFrameRate is removed to avoid potential runtime crashes on unsupported devices
+                // as it is only natively supported in CameraX 1.4.0+ or via specific interop
+                
+                val preview = previewBuilder.build().also {
+                    it.setSurfaceProvider(binding.previewView.surfaceProvider)
+                }
+
+                imageCapture = ImageCapture.Builder()
+                    .setCaptureMode(captureMode)
+                    .setFlashMode(if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF)
+                    .build()
+
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
                 cameraProvider.unbindAll()
 
                 val camera = cameraProvider.bindToLifecycle(
@@ -204,7 +206,10 @@ class ScannerFragment : Fragment() {
                 cameraInfo = camera.cameraInfo
 
             } catch (exc: Exception) {
-                Log.e("ScannerFragment", "Use case binding failed", exc)
+                Log.e("ScannerFragment", "CameraX initialization or binding failed", exc)
+                context?.let { ctx ->
+                    Toast.makeText(ctx, "Failed to initialize camera: ${exc.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
             }
 
         }, ContextCompat.getMainExecutor(context ?: return))
@@ -217,17 +222,22 @@ class ScannerFragment : Fragment() {
         }
     }
 
-    private fun allPermissionsGranted() = ContextCompat.checkSelfPermission(
-        requireContext(), android.Manifest.permission.CAMERA
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    private fun allPermissionsGranted(): Boolean {
+        val currentContext = context ?: return false
+        return ContextCompat.checkSelfPermission(
+            currentContext, android.Manifest.permission.CAMERA
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
 
     private fun takePhoto() {
         val imageCapture = imageCapture ?: return
+        val currentContext = context ?: return
+        val binding = _binding ?: return
 
         binding.progressBar.visibility = View.VISIBLE
 
         imageCapture.takePicture(
-            ContextCompat.getMainExecutor(requireContext()),
+            ContextCompat.getMainExecutor(currentContext),
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(imageProxy: ImageProxy) {
                     val bitmap = imageProxy.toBitmap()
@@ -239,7 +249,7 @@ class ScannerFragment : Fragment() {
                     Log.e("ScannerFragment", "Photo capture failed: ${exception.message}", exception)
                     _binding?.progressBar?.visibility = View.GONE
                     context?.let { ctx ->
-                        Toast.makeText(ctx, "Capture failed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, "Capture failed: ${exception.localizedMessage}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -255,13 +265,14 @@ class ScannerFragment : Fragment() {
             ImageCapture.FLASH_MODE_OFF
         }
         
-        binding.btnFlash.alpha = if (flashEnabled) 1.0f else 0.5f
+        _binding?.btnFlash?.alpha = if (flashEnabled) 1.0f else 0.5f
     }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
+                    val binding = _binding ?: return@collect
                     binding.progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
                     
                     state.scannedBitmap?.let { bitmap ->

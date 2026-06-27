@@ -18,7 +18,7 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (!cameraGranted) {
             Toast.makeText(this, "Camera permission is required.", Toast.LENGTH_LONG).show()
             finish()
