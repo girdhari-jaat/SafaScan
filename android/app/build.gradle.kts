@@ -38,7 +38,7 @@ android {
             } else {
                 // Fallback to environment variables (ideal for CI/CD like GitHub Actions) or local defaults
                 val envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
-                storeFile = if (envStoreFile != null) file(envStoreFile) else file("release-key.jks")
+                storeFile = if (!envStoreFile.isNullOrEmpty()) file(envStoreFile) else file("release-key.jks")
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "password"
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "key0"
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: "password"
