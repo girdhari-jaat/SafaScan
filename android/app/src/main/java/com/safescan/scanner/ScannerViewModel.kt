@@ -91,34 +91,6 @@ class ScannerViewModel @Inject constructor(
     private val _editingBatchIndex = MutableStateFlow<Int?>(null)
     val editingBatchIndex: StateFlow<Int?> = _editingBatchIndex
 
-    // Metadata cache for adjustments
-    private val imageMetadata = mutableMapOf<String, org.json.JSONObject>()
-
-    private fun getMetadataForFile(file: java.io.File): org.json.JSONObject {
-        val metaFile = java.io.File(file.parent, "${file.name}.meta.json")
-        if (imageMetadata.containsKey(file.absolutePath)) {
-            return imageMetadata[file.absolutePath]!!
-        }
-        if (metaFile.exists()) {
-            try {
-                val json = org.json.JSONObject(metaFile.readText())
-                imageMetadata[file.absolutePath] = json
-                return json
-            } catch (e: Exception) { e.printStackTrace() }
-        }
-        val newJson = org.json.JSONObject()
-        imageMetadata[file.absolutePath] = newJson
-        return newJson
-    }
-
-    private fun saveMetadataForFile(file: java.io.File, json: org.json.JSONObject) {
-        val metaFile = java.io.File(file.parent, "${file.name}.meta.json")
-        try {
-            metaFile.writeText(json.toString())
-            imageMetadata[file.absolutePath] = json
-        } catch (e: Exception) { e.printStackTrace() }
-    }
-
     val liveDetect: StateFlow<Boolean> = settingsRepository.liveDetectFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -373,24 +345,6 @@ class ScannerViewModel @Inject constructor(
     }
 
     fun applyCrop(quad: com.safescan.android.scanner.Quadrilateral) {
-        val index = _editingBatchIndex.value
-        if (index != null && index < capturedJpgFiles.size) {
-            val file = capturedJpgFiles[index]
-            val json = getMetadataForFile(file)
-            val cropJson = org.json.JSONObject().apply {
-                put("tl_x", quad.topLeft.x)
-                put("tl_y", quad.topLeft.y)
-                put("tr_x", quad.topRight.x)
-                put("tr_y", quad.topRight.y)
-                put("br_x", quad.bottomRight.x)
-                put("br_y", quad.bottomRight.y)
-                put("bl_x", quad.bottomLeft.x)
-                put("bl_y", quad.bottomLeft.y)
-            }
-            json.put("crop", cropJson)
-            saveMetadataForFile(file, json)
-        }
-
         viewModelScope.launch(Dispatchers.IO) {
             croppingBitmap.value?.let { bmp ->
                 val tl = quad.topLeft
@@ -447,52 +401,13 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
-    fun openEditorFromBatch(index: Int) {
-        if (index >= 0 && index < capturedJpgFiles.size) {
-            val file = capturedJpgFiles[index]
-            _editingBatchIndex.value = index
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                    val json = getMetadataForFile(file)
-                    val rotation = json.optInt("rotation", 0)
-                    
-                    var processed = bitmap
-                    if (rotation != 0) {
-                        val matrix = android.graphics.Matrix()
-                        matrix.postRotate(rotation.toFloat())
-                        processed = android.graphics.Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-                    }
-
-                    withContext(Dispatchers.Main) {
-                        editingBitmapOriginal.value = processed
-                        editingBitmapPreview.value = processed
-                        editorState.value = com.safescan.data.EditorState()
-                        isEditing.value = true
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-    }
-
     fun rotateEditingBitmap() {
-        val index = _editingBatchIndex.value
-        if (index != null && index < capturedJpgFiles.size) {
-            val file = capturedJpgFiles[index]
-            val json = getMetadataForFile(file)
-            val currentRotation = json.optInt("rotation", 0)
-            json.put("rotation", (currentRotation + 90) % 360)
-            saveMetadataForFile(file, json)
-        }
-
         editingBitmapPreview.value?.let { bmp ->
             val matrix = android.graphics.Matrix()
             matrix.postRotate(90f)
             val rotated = android.graphics.Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
             editingBitmapPreview.value = rotated
-            
+            // We also update original if we want the rotation to be permanent across filter resets
             editingBitmapOriginal.value?.let { orig ->
                 val matrixOrig = android.graphics.Matrix()
                 matrixOrig.postRotate(90f)
