@@ -26,6 +26,20 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
         val PDF_FILENAME = stringPreferencesKey("pdf_filename")
         val PAGE_SIZE = stringPreferencesKey("page_size")
         val DOUBLE_FOCUS = booleanPreferencesKey("double_focus")
+        val SAVE_JPG = booleanPreferencesKey("save_jpg")
+        val AUTO_PDF = booleanPreferencesKey("auto_pdf")
+        val BATCH_SCAN = booleanPreferencesKey("batch_scan")
+        val SHOW_GRID = booleanPreferencesKey("show_grid")
+        val CLICK_SOUND = booleanPreferencesKey("click_sound")
+        val AUTO_ORIENTATION = booleanPreferencesKey("auto_orientation")
+        val SHADOW_REMOVE = booleanPreferencesKey("shadow_remove")
+        val AUTO_ROTATION = booleanPreferencesKey("auto_rotation")
+        val DEFAULT_FILTER = stringPreferencesKey("default_filter")
+        val UI_LANGUAGE = stringPreferencesKey("ui_language")
+        val LIVE_DETECT = booleanPreferencesKey("live_detect")
+        val BATTERY_SAVER = booleanPreferencesKey("battery_saver")
+        val USE_PHONE_CAMERA = booleanPreferencesKey("use_phone_camera")
+        val HD_MODE = stringPreferencesKey("hd_mode")
     }
 
     private val safeData: Flow<Preferences> = context.dataStore.data
@@ -67,6 +81,48 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
 
     val doubleFocusFlow: Flow<Boolean> = safeData
         .map { preferences -> preferences[PreferencesKeys.DOUBLE_FOCUS] ?: false }
+
+    val saveJpgFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.SAVE_JPG] ?: true }
+
+    val autoPdfFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.AUTO_PDF] ?: true }
+
+    val batchScanFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.BATCH_SCAN] ?: true }
+
+    val showGridFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.SHOW_GRID] ?: true }
+
+    val clickSoundFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.CLICK_SOUND] ?: true }
+
+    val autoOrientationFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.AUTO_ORIENTATION] ?: false }
+
+    val shadowRemoveFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.SHADOW_REMOVE] ?: false }
+
+    val autoRotationFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.AUTO_ROTATION] ?: false }
+
+    val defaultFilterFlow: Flow<String> = safeData
+        .map { preferences -> preferences[PreferencesKeys.DEFAULT_FILTER] ?: "original" }
+
+    val uiLanguageFlow: Flow<String> = safeData
+        .map { preferences -> preferences[PreferencesKeys.UI_LANGUAGE] ?: "en" }
+
+    val liveDetectFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.LIVE_DETECT] ?: true }
+
+    val batterySaverFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.BATTERY_SAVER] ?: false }
+
+    val usePhoneCameraFlow: Flow<Boolean> = safeData
+        .map { preferences -> preferences[PreferencesKeys.USE_PHONE_CAMERA] ?: false }
+
+    val hdModeFlow: Flow<String> = safeData
+        .map { preferences -> preferences[PreferencesKeys.HD_MODE] ?: "Standard" }
 
     suspend fun setScannerMode(mode: ScannerMode) {
         context.dataStore.edit { preferences ->
@@ -113,6 +169,90 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     suspend fun setDoubleFocus(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.DOUBLE_FOCUS] = enabled
+        }
+    }
+
+    suspend fun setSaveJpg(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SAVE_JPG] = enabled
+        }
+    }
+
+    suspend fun setAutoPdf(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_PDF] = enabled
+        }
+    }
+
+    suspend fun setBatchScan(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.BATCH_SCAN] = enabled
+        }
+    }
+
+    suspend fun setShowGrid(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_GRID] = enabled
+        }
+    }
+
+    suspend fun setClickSound(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CLICK_SOUND] = enabled
+        }
+    }
+
+    suspend fun setAutoOrientation(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_ORIENTATION] = enabled
+        }
+    }
+
+    suspend fun setShadowRemove(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHADOW_REMOVE] = enabled
+        }
+    }
+
+    suspend fun setAutoRotation(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_ROTATION] = enabled
+        }
+    }
+
+    suspend fun setDefaultFilter(filter: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DEFAULT_FILTER] = filter
+        }
+    }
+
+    suspend fun setUiLanguage(language: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.UI_LANGUAGE] = language
+        }
+    }
+
+    suspend fun setLiveDetect(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIVE_DETECT] = enabled
+        }
+    }
+
+    suspend fun setBatterySaver(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.BATTERY_SAVER] = enabled
+        }
+    }
+
+    suspend fun setUsePhoneCamera(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.USE_PHONE_CAMERA] = enabled
+        }
+    }
+
+    suspend fun setHdMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.HD_MODE] = mode
         }
     }
 }

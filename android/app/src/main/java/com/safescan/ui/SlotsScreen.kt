@@ -17,12 +17,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -34,6 +35,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
 import com.safescan.data.ScannerMode
 import com.safescan.data.Slot
 import com.safescan.scanner.ScannerViewModel
@@ -56,6 +59,18 @@ fun SlotsScreen(
     val doubleFocus by viewModel.doubleFocusEnabled.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    val showGrid by viewModel.showGrid.collectAsState()
+    val clickSound by viewModel.clickSound.collectAsState()
+    val liveDetect by viewModel.liveDetect.collectAsState()
+    val shadowRemove by viewModel.shadowRemove.collectAsState()
+    val batterySaver by viewModel.batterySaver.collectAsState()
+    val batchScan by viewModel.batchScan.collectAsState()
+    val autoRotation by viewModel.autoRotation.collectAsState()
+    val usePhoneCamera by viewModel.usePhoneCamera.collectAsState()
+    val hdMode by viewModel.hdMode.collectAsState()
+
+    var isSettingsPopoverOpen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
         // LAYER 1: Viewfinder Overlay Guides based on Selected Mood
@@ -121,7 +136,7 @@ fun SlotsScreen(
 
                 // Right: Settings Menu Button
                 IconButton(
-                    onClick = { viewModel.isSettingsOpen.value = true },
+                    onClick = { isSettingsPopoverOpen = !isSettingsPopoverOpen },
                     modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape)
                 ) {
                     Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
@@ -260,48 +275,284 @@ fun SlotsScreen(
                     }
 
                     // Right Action: Done Button (Saves and generates PDF)
-                    val hasScans = slots.any { it.bitmap != null }
-                    val scannedCount = slots.count { it.bitmap != null }
+                    val isBatchActive by viewModel.batchScan.collectAsState()
+                    val scannedCount = if (viewModel.capturedJpgFiles.isNotEmpty()) viewModel.capturedJpgFiles.size else slots.count { it.bitmap != null }
+                    val hasScans = scannedCount > 0
                     Box(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(if (hasScans) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.5f))
-                            .clickable(enabled = hasScans) {
-                                viewModel.exportPdf(context) { file ->
-                                    if (file != null) {
-                                        try {
-                                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                                context,
-                                                "${context.packageName}.fileprovider",
-                                                file
-                                            )
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                                type = "application/pdf"
-                                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(android.content.Intent.createChooser(intent, context.getString(R.string.export_share_pdf)))
-                                        } catch (e: Exception) {
-                                            android.widget.Toast.makeText(context, "Sharing error", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    } else {
-                                        android.widget.Toast.makeText(context, "Export Failed", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
+                            .background(
+                                if (hasScans) MaterialTheme.colorScheme.primary 
+                                else if (isBatchActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                else Color.Black.copy(alpha = 0.5f)
+                            )
+                            .clickable {
+                                if (hasScans) {
+                                    viewModel.isGridViewVisible.value = true
+                                } else {
+                                    viewModel.toggleBatchScan(!isBatchActive)
                                 }
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            if (scannedCount > 0) {
+                            if (hasScans) {
+                                Text(text = "✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Text(text = "($scannedCount)", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            } else {
+                                Text(
+                                    text = if (isBatchActive) "Batch\nON" else "Batch\nOFF",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 12.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
                             }
                         }
                     }
                 }
             }
         }
+
+        if (isSettingsPopoverOpen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        isSettingsPopoverOpen = false
+                    }
+            )
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 80.dp, end = 16.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                Card(
+                    modifier = Modifier
+                        .width(280.dp)
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) { /* Consume click events to prevent dismiss */ },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xF21C1C1E)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Camera Settings",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            IconButton(
+                                onClick = {
+                                    isSettingsPopoverOpen = false
+                                    viewModel.isSettingsOpen.value = true
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "More Settings",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                                .height(1.dp)
+                                .background(Color.White.copy(alpha = 0.1f))
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 280.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            PopoverToggleRow(
+                                icon = "🌐",
+                                label = "Grid Lines",
+                                checked = showGrid,
+                                onCheckedChange = { viewModel.toggleShowGrid(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "🔊",
+                                label = "Shutter Sound",
+                                checked = clickSound,
+                                onCheckedChange = { viewModel.toggleClickSound(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "✂️",
+                                label = "Auto Crop",
+                                checked = autoCrop,
+                                onCheckedChange = { viewModel.toggleAutoCrop(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "🔍",
+                                label = "Live Detect",
+                                checked = liveDetect,
+                                onCheckedChange = { viewModel.toggleLiveDetect(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "☀️",
+                                label = "Shadow Remove",
+                                checked = shadowRemove,
+                                onCheckedChange = { viewModel.toggleShadowRemove(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "🎯",
+                                label = "Double Focus",
+                                checked = doubleFocus,
+                                onCheckedChange = { viewModel.toggleDoubleFocus(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "🔋",
+                                label = "Battery Saver",
+                                checked = batterySaver,
+                                onCheckedChange = { viewModel.toggleBatterySaver(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "📄",
+                                label = "Batch Scan",
+                                checked = batchScan,
+                                onCheckedChange = { viewModel.toggleBatchScan(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "🔄",
+                                label = "Auto Rotation",
+                                checked = autoRotation,
+                                onCheckedChange = { viewModel.toggleAutoRotation(it) }
+                            )
+                            PopoverToggleRow(
+                                icon = "📱",
+                                label = "Phone Camera",
+                                checked = usePhoneCamera,
+                                onCheckedChange = { viewModel.toggleUsePhoneCamera(it) }
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                                .height(1.dp)
+                                .background(Color.White.copy(alpha = 0.1f))
+                        )
+
+                        Text(
+                            text = "Quality Mode",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            listOf("Fast", "Standard", "High").forEach { mode ->
+                                val active = hdMode == mode
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                        .clickable { viewModel.setHdMode(mode) }
+                                        .padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = mode,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (active) Color.White else Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        val isGridViewVisible by viewModel.isGridViewVisible.collectAsState()
+        if (isGridViewVisible) {
+            DocumentGridView(
+                viewModel = viewModel,
+                onDismiss = { viewModel.isGridViewVisible.value = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PopoverToggleRow(
+    icon: String,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp, horizontal = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = icon, fontSize = 16.sp)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = Color.LightGray,
+                uncheckedTrackColor = Color.DarkGray
+            ),
+            modifier = Modifier.scale(0.85f)
+        )
     }
 }
 
@@ -446,6 +697,222 @@ fun SlotItem(slot: Slot, onClick: () -> Unit, onLongClick: () -> Unit, onClear: 
                 Icon(Icons.Default.Add, contentDescription = "Add image", tint = Color.DarkGray)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(slot.label, color = Color.DarkGray, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DocumentGridView(
+    viewModel: ScannerViewModel,
+    onDismiss: () -> Unit
+) {
+    val slots by viewModel.slots.collectAsState()
+    val capturedJpgs = viewModel.capturedJpgFiles
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    val pagesCount = if (capturedJpgs.isNotEmpty()) capturedJpgs.size else slots.count { it.bitmap != null }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Document Grid", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("$pagesCount Pages Captured", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp
+            ) {
+                Button(
+                    onClick = {
+                        onDismiss()
+                        viewModel.exportPdf(context) { file ->
+                            if (file != null) {
+                                try {
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file
+                                    )
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "application/pdf"
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(intent, context.getString(R.string.export_share_pdf)))
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Sharing error", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                if (!viewModel.autoPdf.value) {
+                                    android.widget.Toast.makeText(context, "Document saved to Library", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, "Export Failed", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("COMPILE PDF DOCUMENT", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            if (pagesCount == 0) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No pages captured yet.", color = Color.Gray)
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (capturedJpgs.isNotEmpty()) {
+                        items(capturedJpgs.size) { idx ->
+                            val file = capturedJpgs[idx]
+                            val bitmap = remember(file) {
+                                try {
+                                    android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(0.72f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.DarkGray)
+                                    .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            ) {
+                                bitmap?.let { bmp ->
+                                    Image(
+                                        bitmap = bmp.asImageBitmap(),
+                                        contentDescription = "Page ${idx + 1}",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                
+                                // Delete/Clear button
+                                IconButton(
+                                    onClick = {
+                                        try {
+                                            file.delete()
+                                        } catch (e: Exception) {}
+                                        capturedJpgs.removeAt(idx)
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(28.dp)
+                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Delete Page", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                                
+                                // Index badge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(8.dp)
+                                        .size(24.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("${idx + 1}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    } else {
+                        val activeSlotsList = slots.filter { it.bitmap != null }
+                        items(activeSlotsList.size) { idx ->
+                            val slot = activeSlotsList[idx]
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(0.72f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.DarkGray)
+                                    .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            ) {
+                                slot.bitmap?.let { bmp ->
+                                    Image(
+                                        bitmap = bmp.asImageBitmap(),
+                                        contentDescription = slot.label,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                
+                                // Edit/Crop button
+                                IconButton(
+                                    onClick = {
+                                        onDismiss()
+                                        viewModel.openCrop(slot.id)
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(4.dp)
+                                        .size(28.dp)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), CircleShape)
+                                ) {
+                                    Text("✂️", fontSize = 12.sp)
+                                }
+
+                                // Delete/Clear button
+                                IconButton(
+                                    onClick = {
+                                        viewModel.clearSlot(slot.id)
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(28.dp)
+                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Delete Page", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                                
+                                // Index badge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(8.dp)
+                                        .size(24.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("${idx + 1}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

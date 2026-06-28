@@ -58,6 +58,50 @@ class ScannerViewModel @Inject constructor(
     val doubleFocusEnabled: StateFlow<Boolean> = settingsRepository.doubleFocusFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val saveJpg: StateFlow<Boolean> = settingsRepository.saveJpgFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val autoPdf: StateFlow<Boolean> = settingsRepository.autoPdfFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val batchScan: StateFlow<Boolean> = settingsRepository.batchScanFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val showGrid: StateFlow<Boolean> = settingsRepository.showGridFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val clickSound: StateFlow<Boolean> = settingsRepository.clickSoundFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val autoOrientation: StateFlow<Boolean> = settingsRepository.autoOrientationFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val shadowRemove: StateFlow<Boolean> = settingsRepository.shadowRemoveFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val autoRotation: StateFlow<Boolean> = settingsRepository.autoRotationFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val defaultFilter: StateFlow<String> = settingsRepository.defaultFilterFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "original")
+
+    val uiLanguage: StateFlow<String> = settingsRepository.uiLanguageFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "en")
+
+    val liveDetect: StateFlow<Boolean> = settingsRepository.liveDetectFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val batterySaver: StateFlow<Boolean> = settingsRepository.batterySaverFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val usePhoneCamera: StateFlow<Boolean> = settingsRepository.usePhoneCameraFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val hdMode: StateFlow<String> = settingsRepository.hdModeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Standard")
+
+    val capturedJpgFiles = androidx.compose.runtime.mutableStateListOf<java.io.File>()
+
     val slots: MutableStateFlow<List<Slot>> = MutableStateFlow(emptyList())
     val selectedSlotId: MutableStateFlow<String?> = MutableStateFlow(null)
 
@@ -74,6 +118,7 @@ class ScannerViewModel @Inject constructor(
 
     val isCropping: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isSettingsOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isGridViewVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val croppingSlotId: MutableStateFlow<String?> = MutableStateFlow(null)
     val croppingBitmap: MutableStateFlow<Bitmap?> = MutableStateFlow(null)
 
@@ -100,6 +145,7 @@ class ScannerViewModel @Inject constructor(
                     }
                 }
                 selectedSlotId.value = null
+                capturedJpgFiles.clear()
             }
         }
     }
@@ -146,6 +192,90 @@ class ScannerViewModel @Inject constructor(
     fun toggleDoubleFocus(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setDoubleFocus(enabled)
+        }
+    }
+
+    fun toggleSaveJpg(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setSaveJpg(enabled)
+        }
+    }
+
+    fun toggleAutoPdf(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoPdf(enabled)
+        }
+    }
+
+    fun toggleBatchScan(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setBatchScan(enabled)
+        }
+    }
+
+    fun toggleShowGrid(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setShowGrid(enabled)
+        }
+    }
+
+    fun toggleClickSound(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setClickSound(enabled)
+        }
+    }
+
+    fun toggleAutoOrientation(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoOrientation(enabled)
+        }
+    }
+
+    fun toggleShadowRemove(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setShadowRemove(enabled)
+        }
+    }
+
+    fun toggleAutoRotation(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoRotation(enabled)
+        }
+    }
+
+    fun setDefaultFilter(filter: String) {
+        viewModelScope.launch {
+            settingsRepository.setDefaultFilter(filter)
+        }
+    }
+
+    fun setUiLanguage(language: String) {
+        viewModelScope.launch {
+            settingsRepository.setUiLanguage(language)
+        }
+    }
+
+    fun toggleLiveDetect(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setLiveDetect(enabled)
+        }
+    }
+
+    fun toggleBatterySaver(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setBatterySaver(enabled)
+        }
+    }
+
+    fun toggleUsePhoneCamera(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setUsePhoneCamera(enabled)
+        }
+    }
+
+    fun setHdMode(mode: String) {
+        viewModelScope.launch {
+            settingsRepository.setHdMode(mode)
         }
     }
     
@@ -326,18 +456,42 @@ class ScannerViewModel @Inject constructor(
                 // Also save the captured pages and metadata persistently as a document
                 val docId = "doc_" + System.currentTimeMillis()
                 val title = pdfFilename.value
-                val pagesData = slots.value.filter { it.bitmap != null }.map { slot ->
-                    Triple(slot.id, slot.bitmap!!, slot.bitmap!!)
+                val pagesData = if (capturedJpgFiles.isNotEmpty()) {
+                    capturedJpgFiles.mapIndexed { idx, file ->
+                        val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                        Triple("p$idx", bmp, bmp)
+                    }
+                } else {
+                    slots.value.filter { it.bitmap != null }.map { slot ->
+                        Triple(slot.id, slot.bitmap!!, slot.bitmap!!)
+                    }
                 }
+                
                 if (pagesData.isNotEmpty()) {
                     documentRepository.saveDocument(docId, title, currentMode.value.name, pagesData)
                     reloadSavedDocuments()
                 }
 
                 // IMPROVEMENT: Using injected pdfExporter to keep a clean Singleton architecture
-                val result = pdfExporter.exportCardsToPdf(slots.value, pdfFilename.value, currentMode.value, pageSize.value)
-                withContext(Dispatchers.Main) {
-                    onResult(result.getOrNull())
+                if (autoPdf.value) {
+                    val slotsToExport = if (capturedJpgFiles.isNotEmpty()) {
+                        capturedJpgFiles.mapIndexed { idx, file ->
+                            val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                            Slot("p$idx", "Page ${idx + 1}", bmp)
+                        }
+                    } else {
+                        slots.value
+                    }
+                    val result = pdfExporter.exportCardsToPdf(slotsToExport, pdfFilename.value, currentMode.value, pageSize.value)
+                    withContext(Dispatchers.Main) {
+                        capturedJpgFiles.clear()
+                        onResult(result.getOrNull())
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        capturedJpgFiles.clear()
+                        onResult(null)
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -385,6 +539,14 @@ class ScannerViewModel @Inject constructor(
     fun onCapture(bitmap: Bitmap) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         
+        // Save the raw captured JPG immediately to Scans folder if saveJpg is ON
+        if (saveJpg.value) {
+            val savedFile = documentRepository.saveJpgToScans(bitmap, jpegQuality.value.toInt())
+            if (savedFile != null) {
+                capturedJpgFiles.add(savedFile)
+            }
+        }
+        
         viewModelScope.launch(Dispatchers.IO) {
             // Compress the image to avoid 9MB size
             val maxResolution = 1920f
@@ -412,6 +574,12 @@ class ScannerViewModel @Inject constructor(
                             scannedBitmap = result.data,
                             error = null
                         )
+                    }
+
+                    if (!batchScan.value && slotId != null) {
+                        withContext(Dispatchers.Main) {
+                            openEditor(slotId)
+                        }
                     }
                 }
                 is com.safescan.core.AppResult.Error -> {

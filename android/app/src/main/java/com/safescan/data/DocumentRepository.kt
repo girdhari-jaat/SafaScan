@@ -28,6 +28,26 @@ class DocumentRepository @Inject constructor(
     }
 
     /**
+     * Saves a captured bitmap to /Android/data/com.safescan/files/Scans/timestamp.jpg
+     */
+    fun saveJpgToScans(bitmap: Bitmap, quality: Int): File? {
+        val scansDir = context.getExternalFilesDir("Scans") ?: return null
+        if (!scansDir.exists()) {
+            scansDir.mkdirs()
+        }
+        val file = File(scansDir, "${System.currentTimeMillis()}.jpg")
+        return try {
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            }
+            file
+        } catch (e: IOException) {
+            Log.e(TAG, "Error saving captured JPG to Scans", e)
+            null
+        }
+    }
+
+    /**
      * Retrieves all saved documents by reading meta.json from each sub-folder.
      */
     fun getDocuments(): List<DocumentMetadata> {

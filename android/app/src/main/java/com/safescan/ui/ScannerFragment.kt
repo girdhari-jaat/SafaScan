@@ -117,7 +117,10 @@ class ScannerFragment : Fragment() {
                 val isEditing = viewModel.isEditing.value
                 val isCropping = viewModel.isCropping.value
                 val isSettingsOpen = viewModel.isSettingsOpen.value
-                if (isSettingsOpen) {
+                val isGridViewVisible = viewModel.isGridViewVisible.value
+                if (isGridViewVisible) {
+                    viewModel.isGridViewVisible.value = false
+                } else if (isSettingsOpen) {
                     viewModel.isSettingsOpen.value = false
                 } else if (isCropping) {
                     viewModel.isCropping.value = false
