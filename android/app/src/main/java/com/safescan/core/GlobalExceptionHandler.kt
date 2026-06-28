@@ -17,18 +17,19 @@ class GlobalExceptionHandler(
 
     override fun uncaughtException(t: Thread, e: Throwable) {
         try {
-            val cacheDir = context.cacheDir
-            val logDir = File(cacheDir, "crash_logs")
-            if (!logDir.exists()) {
-                logDir.mkdirs()
-            }
-            val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
-            val logFile = File(logDir, "crash_$timestamp.txt")
+            val logDir = context.getExternalFilesDir(null)
+            if (logDir != null) {
+                if (!logDir.exists()) {
+                    logDir.mkdirs()
+                }
+                val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
+                val logFile = File(logDir, "crash_$timestamp.txt")
 
-            FileWriter(logFile, true).use { fw ->
-                PrintWriter(fw).use { pw ->
-                    pw.println("Thread: ${t.name}")
-                    e.printStackTrace(pw)
+                FileWriter(logFile, true).use { fw ->
+                    PrintWriter(fw).use { pw ->
+                        pw.println("Thread: ${t.name}")
+                        e.printStackTrace(pw)
+                    }
                 }
             }
         } catch (ignored: Exception) {
