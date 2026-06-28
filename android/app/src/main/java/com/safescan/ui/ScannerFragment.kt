@@ -75,6 +75,25 @@ class ScannerFragment : Fragment() {
         }
     }
 
+    private val pickImageLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            try {
+                val inputStream = requireContext().contentResolver.openInputStream(it)
+                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                inputStream?.close()
+                if (bitmap != null) {
+                    viewModel.onCapture(bitmap)
+                    Toast.makeText(context, "Image imported successfully", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("ScannerFragment", "Error reading imported image", e)
+                Toast.makeText(context, "Failed to import image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -97,7 +116,10 @@ class ScannerFragment : Fragment() {
             override fun handleOnBackPressed() {
                 val isEditing = viewModel.isEditing.value
                 val isCropping = viewModel.isCropping.value
-                if (isCropping) {
+                val isSettingsOpen = viewModel.isSettingsOpen.value
+                if (isSettingsOpen) {
+                    viewModel.isSettingsOpen.value = false
+                } else if (isCropping) {
                     viewModel.isCropping.value = false
                 } else if (isEditing) {
                     viewModel.isEditing.value = false
@@ -158,7 +180,7 @@ class ScannerFragment : Fragment() {
                 }
             }
         } else {
-            // Show camera-related XML views
+            // Show camera-related XML views (only previewView, hide old buttons)
             binding.previewView.visibility = View.VISIBLE
             binding.btnCapture.visibility = View.GONE
             binding.btnFlash.visibility = View.GONE
@@ -174,7 +196,13 @@ class ScannerFragment : Fragment() {
                     SafeScanTheme {
                         val isEditing by viewModel.isEditing.collectAsState()
                         val isCropping by viewModel.isCropping.collectAsState()
-                        if (isCropping) {
+                        val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
+                        if (isSettingsOpen) {
+                            com.safescan.ui.SettingsScreen(
+                                viewModel = viewModel,
+                                onBack = { viewModel.isSettingsOpen.value = false }
+                            )
+                        } else if (isCropping) {
                             com.safescan.ui.CropScreen(viewModel = viewModel)
                         } else if (isEditing) {
                             com.safescan.ui.EditorScreen(viewModel = viewModel)
@@ -184,6 +212,7 @@ class ScannerFragment : Fragment() {
                                 onCaptureClick = { takePhoto() },
                                 onClose = { updateViewMode(FragmentViewMode.LIBRARY) },
                                 onFlashToggle = { toggleFlash() },
+                                onGalleryClick = { pickImageLauncher.launch("image/*") },
                                 onSlotClick = { slotId ->
                                     viewModel.onSlotClick(slotId)
                                     // return to preview view and result image gone

@@ -67,6 +67,7 @@ class ScannerViewModel @Inject constructor(
     val editorState: MutableStateFlow<com.safescan.data.EditorState> = MutableStateFlow(com.safescan.data.EditorState())
 
     val isCropping: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isSettingsOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val croppingSlotId: MutableStateFlow<String?> = MutableStateFlow(null)
     val croppingBitmap: MutableStateFlow<Bitmap?> = MutableStateFlow(null)
 
