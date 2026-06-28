@@ -172,7 +172,12 @@ class ScannerFragment : Fragment() {
                 setContent {
                     SafeScanTheme {
                         LibraryScreen(
+                            viewModel = viewModel,
                             onStartScan = {
+                                checkPermissionAndStartScanner()
+                            },
+                            onOpenDocument = { doc ->
+                                viewModel.loadDocumentIntoSlots(doc)
                                 checkPermissionAndStartScanner()
                             }
                         )

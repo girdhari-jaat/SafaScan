@@ -69,11 +69,97 @@ fun EditorScreen(viewModel: ScannerViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = { viewModel.applyAutoEnhance() },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+            val recognizedText by viewModel.recognizedText.collectAsState()
+            val isOcrRunning by viewModel.isOcrRunning.collectAsState()
+            val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(id = R.string.auto_enhance))
+                Button(
+                    onClick = { viewModel.applyAutoEnhance() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(id = R.string.auto_enhance))
+                }
+
+                Button(
+                    onClick = { viewModel.runOcrOnCurrentBitmap() },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ),
+                    enabled = !isOcrRunning
+                ) {
+                    if (isOcrRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Recognize Text")
+                    }
+                }
+            }
+
+            // Display OCR text results if available
+            recognizedText?.let { text ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recognized Text (ML Kit OCR)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
+                                    onClick = {
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(text))
+                                        android.widget.Toast.makeText(context, "Text copied", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Text("Copy", fontSize = 12.sp)
+                                }
+                                TextButton(
+                                    onClick = {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(android.content.Intent.EXTRA_TEXT, text)
+                                        }
+                                        context.startActivity(android.content.Intent.createChooser(intent, "Share Text"))
+                                    }
+                                ) {
+                                    Text("Share", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        Divider(modifier = Modifier.padding(vertical = 4.dp))
+                        Text(
+                            text = text.ifEmpty { "No text recognized." },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp).verticalScroll(rememberScrollState())
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

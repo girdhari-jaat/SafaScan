@@ -26,7 +26,8 @@ class ScannerViewModel @Inject constructor(
     private val scannerEngine: DocumentScannerEngine,
     private val settingsRepository: SettingsRepository,
     private val edgeDetectionEngine: com.safescan.scanner.EdgeDetectionEngine,
-    private val pdfExporter: com.safescan.domain.PdfExporter
+    private val pdfExporter: com.safescan.domain.PdfExporter,
+    private val documentRepository: com.safescan.data.DocumentRepository
 ) : ViewModel() {
 
     // IMPROVEMENT: Using com.safescan.data.ScannerUiState with isAutoRunning
@@ -66,13 +67,21 @@ class ScannerViewModel @Inject constructor(
     val editingBitmapPreview: MutableStateFlow<Bitmap?> = MutableStateFlow(null)
     val editorState: MutableStateFlow<com.safescan.data.EditorState> = MutableStateFlow(com.safescan.data.EditorState())
 
+    // OCR & Text Recognition States
+    private val ocrEngine = com.safescan.ocr.OcrEngine()
+    val recognizedText: MutableStateFlow<String?> = MutableStateFlow(null)
+    val isOcrRunning: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
     val isCropping: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isSettingsOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val croppingSlotId: MutableStateFlow<String?> = MutableStateFlow(null)
     val croppingBitmap: MutableStateFlow<Bitmap?> = MutableStateFlow(null)
 
+    val savedDocuments: MutableStateFlow<List<com.safescan.data.DocumentMetadata>> = MutableStateFlow(emptyList())
+
     init {
         _uiState.update { it.copy(currentEngine = scannerEngine.engineType) }
+        reloadSavedDocuments()
         viewModelScope.launch {
             currentMode.collect { mode ->
                 slots.value = when (mode) {
@@ -91,6 +100,15 @@ class ScannerViewModel @Inject constructor(
                     }
                 }
                 selectedSlotId.value = null
+            }
+        }
+    }
+
+    fun reloadSavedDocuments() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val docs = documentRepository.getDocuments()
+            withContext(Dispatchers.Main) {
+                savedDocuments.value = docs
             }
         }
     }
@@ -262,6 +280,8 @@ class ScannerViewModel @Inject constructor(
         editingSlotId.value = null
         editingBitmapOriginal.value = null
         editingBitmapPreview.value = null
+        recognizedText.value = null
+        isOcrRunning.value = false
     }
 
     fun updateEditorState(newState: com.safescan.data.EditorState) {
@@ -275,6 +295,27 @@ class ScannerViewModel @Inject constructor(
                 val enhanced = com.safescan.domain.ImageProcessor.autoEnhance(bmp)
                 editingBitmapPreview.value = enhanced
                 editorState.value = com.safescan.data.EditorState()
+                recognizedText.value = null // reset OCR if image changes
+            }
+        }
+    }
+
+    fun runOcrOnCurrentBitmap() {
+        val bmp = editingBitmapPreview.value ?: return
+        isOcrRunning.value = true
+        recognizedText.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = ocrEngine.recognizeText(bmp)
+            withContext(Dispatchers.Main) {
+                isOcrRunning.value = false
+                when (result) {
+                    is com.safescan.core.AppResult.Success -> {
+                        recognizedText.value = result.data.joinToString("\n")
+                    }
+                    is com.safescan.core.AppResult.Error -> {
+                        recognizedText.value = "Error: ${result.message}"
+                    }
+                }
             }
         }
     }
@@ -282,8 +323,19 @@ class ScannerViewModel @Inject constructor(
     fun exportPdf(context: android.content.Context, onResult: (java.io.File?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Also save the captured pages and metadata persistently as a document
+                val docId = "doc_" + System.currentTimeMillis()
+                val title = pdfFilename.value
+                val pagesData = slots.value.filter { it.bitmap != null }.map { slot ->
+                    Triple(slot.id, slot.bitmap!!, slot.bitmap!!)
+                }
+                if (pagesData.isNotEmpty()) {
+                    documentRepository.saveDocument(docId, title, currentMode.value.name, pagesData)
+                    reloadSavedDocuments()
+                }
+
                 // IMPROVEMENT: Using injected pdfExporter to keep a clean Singleton architecture
-                val result = pdfExporter.exportCardsToPdf(slots.value, pdfFilename.value, currentMode.value)
+                val result = pdfExporter.exportCardsToPdf(slots.value, pdfFilename.value, currentMode.value, pageSize.value)
                 withContext(Dispatchers.Main) {
                     onResult(result.getOrNull())
                 }
@@ -292,6 +344,32 @@ class ScannerViewModel @Inject constructor(
                     onResult(null)
                 }
             }
+        }
+    }
+
+    fun loadDocumentIntoSlots(doc: com.safescan.data.DocumentMetadata) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val loadedSlots = doc.pages.map { page ->
+                val bmp = documentRepository.loadOriginalBitmap(doc.id, page.id)
+                Slot(page.id, "Page ${page.id}", bmp)
+            }
+            withContext(Dispatchers.Main) {
+                val mode = try {
+                    ScannerMode.valueOf(doc.mode)
+                } catch (e: Exception) {
+                    ScannerMode.DOCUMENT
+                }
+                settingsRepository.setScannerMode(mode)
+                // Let collect trigger but instantly override slots with actual persistent files
+                slots.value = loadedSlots
+            }
+        }
+    }
+
+    fun deleteDocument(docId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            documentRepository.deleteDocument(docId)
+            reloadSavedDocuments()
         }
     }
 
