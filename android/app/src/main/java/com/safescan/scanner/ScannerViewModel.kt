@@ -85,10 +85,6 @@ class ScannerViewModel @Inject constructor(
                         Slot("p3", "Page 3"),
                         Slot("p4", "Page 4")
                     )
-                    ScannerMode.BOOK -> listOf(
-                        Slot("left", "Left Page"),
-                        Slot("right", "Right Page")
-                    )
                     ScannerMode.GRID -> (1..8).map {
                         Slot(it.toString(), "Slot $it")
                     }
@@ -311,7 +307,19 @@ class ScannerViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, error = null) }
         
         viewModelScope.launch(Dispatchers.IO) {
-            when (val result = scannerEngine.scanDocument(bitmap)) {
+            // Compress the image to avoid 9MB size
+            val maxResolution = 1920f
+            val ratio = kotlin.math.min(maxResolution / bitmap.width, maxResolution / bitmap.height)
+            val resizedBitmap = if (ratio < 1) {
+                android.graphics.Bitmap.createScaledBitmap(
+                    bitmap, 
+                    (bitmap.width * ratio).toInt(), 
+                    (bitmap.height * ratio).toInt(), 
+                    true
+                )
+            } else bitmap
+
+            when (val result = scannerEngine.scanDocument(resizedBitmap)) {
                 is com.safescan.core.AppResult.Success -> {
                     val slotId = selectedSlotId.value ?: slots.value.firstOrNull { it.bitmap == null }?.id
                     if (slotId != null) {

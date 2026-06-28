@@ -37,6 +37,9 @@ import com.safescan.R
 @Composable
 fun SlotsScreen(
     viewModel: ScannerViewModel,
+    onCaptureClick: () -> Unit,
+    onClose: () -> Unit,
+    onFlashToggle: () -> Unit,
     onSlotClick: (String) -> Unit,
     onSlotLongClick: (String) -> Unit
 ) {
@@ -55,176 +58,154 @@ fun SlotsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // A. TOP QUICK STATUS TOGGLE BAR (Toggles for everything)
+            // A. TOP BAR
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Auto Crop Status Pill
-                StatusPillButton(
-                    label = "Auto Crop",
-                    isActive = autoCrop,
-                    onClick = { viewModel.toggleAutoCrop(!autoCrop) }
-                )
-
-                // Double Focus Status Pill
-                StatusPillButton(
-                    label = "Double Focus",
-                    isActive = doubleFocus,
-                    onClick = { viewModel.toggleDoubleFocus(!doubleFocus) }
-                )
-
-                // Engine Switch Status Pill
-                Button(
-                    onClick = {
-                        val current = uiState.currentEngine
-                        val next = when (current) {
-                            com.safescan.scanner.ScannerEngineType.MLKIT -> com.safescan.scanner.ScannerEngineType.LOCAL_ML
-                            com.safescan.scanner.ScannerEngineType.LOCAL_ML -> com.safescan.scanner.ScannerEngineType.MLKIT
-                        }
-                        viewModel.toggleEngine(next)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black.copy(alpha = 0.6f),
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                // Left: Close Button
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
                 ) {
-                    val engineLabel = when (uiState.currentEngine) {
-                        com.safescan.scanner.ScannerEngineType.MLKIT -> "ML Kit"
-                        com.safescan.scanner.ScannerEngineType.LOCAL_ML -> "Local ML"
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                }
+
+                // Center: Flash & Tabs
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onFlashToggle,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                    ) {
+                        Text(text = "⚡", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     }
-                    Text(
-                        text = "Engine: $engineLabel",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+
+                    Row(
+                        modifier = Modifier
+                            .height(48.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+                            .padding(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf(
+                            ScannerMode.DOCUMENT to "Paper",
+                            ScannerMode.CARD to "Card",
+                            ScannerMode.GRID to "Grid"
+                        ).forEach { (mode, label) ->
+                            val isSelected = currentMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                    .clickable { viewModel.switchMode(mode) }
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label.uppercase(),
+                                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Black else androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Right: Settings
+                IconButton(
+                    onClick = { /* Toggle settings popup */ },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                ) {
+                    Text(text = "⋮", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 }
             }
 
-            // B. CENTER INSTRUCTIONS OVERLAY
-            val guideText = when (currentMode) {
-                ScannerMode.CARD -> "Align Card Inside Cutout"
-                ScannerMode.DOCUMENT -> "Align Document Inside Frame"
-                ScannerMode.BOOK -> "Align Book Spine with Yellow Center"
-                ScannerMode.GRID -> "Utilize Grid for Centered Alignment"
-            }
-
-            Box(
+            // B. BOTTOM BAR
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 16.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = guideText,
-                    color = Color.Yellow,
-                    style = MaterialTheme.typography.bodyMedium,
+                // Fallback Upload / Gallery
+                IconButton(
+                    onClick = { /* Fallback Upload */ },
                     modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.75f), shape = RoundedCornerShape(8.dp))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            // C. BOTTOM AREA: Viewfinder Mood Selector & Horizontal Slot Carousel
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // I. Viewfinder Mood Segment Toggles
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.Center
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
                 ) {
-                    listOf(
-                        ScannerMode.CARD,
-                        ScannerMode.DOCUMENT,
-                        ScannerMode.BOOK,
-                        ScannerMode.GRID
-                    ).forEach { mode ->
-                        Button(
-                            onClick = { viewModel.switchMode(mode) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentMode == mode) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.5f),
-                                contentColor = Color.White
-                            ),
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text(text = mode.name, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
+                    Text(text = "🖼️", color = Color.White, style = MaterialTheme.typography.titleMedium)
                 }
 
-                // II. PDF Export Button
-                val hasScans = slots.any { it.bitmap != null }
-                Button(
-                    onClick = {
-                        viewModel.exportPdf(context) { file ->
-                            if (file != null) {
-                                try {
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        file
-                                    )
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                        type = "application/pdf"
-                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(android.content.Intent.createChooser(intent, context.getString(R.string.export_share_pdf)))
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Sharing error", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                android.widget.Toast.makeText(context, "Export Failed", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    enabled = hasScans,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(context.getString(R.string.export_share_pdf))
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // III. Horizontal Slots Carousel Card List
+                // Center Shutter
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(115.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
-                        .padding(8.dp)
+                        .size(64.dp)
+                        .border(4.dp, Color.White, CircleShape)
+                        .background(Color.Transparent, CircleShape)
+                        .clickable { onCaptureClick() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (slots.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(text = "No Slots Available", color = Color.Gray)
-                        }
-                    } else {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(slots) { slot ->
-                                Box(modifier = Modifier.width(85.dp)) {
-                                    SlotItem(
-                                        slot = slot,
-                                        onClick = { onSlotClick(slot.id) },
-                                        onLongClick = { onSlotLongClick(slot.id) },
-                                        onClear = { viewModel.clearSlot(slot.id) }
-                                    )
+                    Box(modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                }
+
+                // Right Layers / Done Button
+                val capturedCount = slots.count { it.bitmap != null }
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        .clickable { 
+                            if (slots.any { it.bitmap != null }) {
+                                viewModel.exportPdf(context) { file ->
+                                    if (file != null) {
+                                        android.widget.Toast.makeText(context, "Saved ${file.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    onClose()
                                 }
+                            } else {
+                                onClose()
                             }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "📑", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    if (capturedCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .background(Color.Red, CircleShape)
+                                .size(20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = capturedCount.toString(), color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Black)
                         }
                     }
                 }
@@ -280,12 +261,6 @@ fun ViewfinderOverlay(mode: ScannerMode, modifier: Modifier = Modifier) {
                 // Document aspect ratio: A4 (approx. 1.41)
                 rectWidth = width * 0.75f
                 rectHeight = rectWidth * 1.35f
-            }
-            ScannerMode.BOOK -> {
-                // Book dual page aspect ratio: 16:9
-                rectWidth = width * 0.88f
-                rectHeight = rectWidth / (16f / 9f)
-                isBookMode = true
             }
             ScannerMode.GRID -> {
                 rectWidth = 0f

@@ -160,10 +160,10 @@ class ScannerFragment : Fragment() {
         } else {
             // Show camera-related XML views
             binding.previewView.visibility = View.VISIBLE
-            binding.btnCapture.visibility = View.VISIBLE
-            binding.btnFlash.visibility = View.VISIBLE
-            binding.btnSwitchEngine.visibility = View.VISIBLE
-
+            binding.btnCapture.visibility = View.GONE
+            binding.btnFlash.visibility = View.GONE
+            binding.btnSwitchEngine.visibility = View.GONE
+            
             // Start live CameraX preview
             startCamera()
 
@@ -181,6 +181,9 @@ class ScannerFragment : Fragment() {
                         } else {
                             SlotsScreen(
                                 viewModel = viewModel,
+                                onCaptureClick = { takePhoto() },
+                                onClose = { updateViewMode(FragmentViewMode.LIBRARY) },
+                                onFlashToggle = { toggleFlash() },
                                 onSlotClick = { slotId ->
                                     viewModel.onSlotClick(slotId)
                                     // return to preview view and result image gone
@@ -291,7 +294,6 @@ class ScannerFragment : Fragment() {
                     com.safescan.data.ScannerMode.CARD -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY // Fast capture, lower latency
                     com.safescan.data.ScannerMode.GRID -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY
                     com.safescan.data.ScannerMode.DOCUMENT -> ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY // Standard balanced
-                    com.safescan.data.ScannerMode.BOOK -> ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY // High-quality detail focus
                 }
 
                 val targetFrameRateRange = when (mode) {
