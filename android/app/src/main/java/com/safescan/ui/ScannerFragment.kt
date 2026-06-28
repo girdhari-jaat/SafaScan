@@ -1,5 +1,6 @@
 package com.safescan.ui
 
+import android.app.Activity
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -27,7 +28,9 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.google.android.material.snackbar.Snackbar
+import com.google.android.gms.documentscanner.GmsDocumentScannerOptions
+import com.google.android.gms.documentscanner.GmsDocumentScanning
+import com.google.android.gms.documentscanner.GmsDocumentScanningResult
 import com.safescan.databinding.FragmentScannerBinding
 import com.safescan.scanner.ScannerEngineType
 import com.safescan.scanner.ScannerViewModel
@@ -99,7 +102,7 @@ class ScannerFragment : Fragment() {
 
     private val scannerLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val scanResult = com.google.android.gms.documentscanner.GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
             scanResult?.pages?.forEach { page ->
                 val uri = page.imageUri
                 // Import this URI into the app's JPG storage
@@ -109,10 +112,10 @@ class ScannerFragment : Fragment() {
     }
 
     private fun startMLKitScanner() {
-        val scanner = com.google.android.gms.documentscanner.GmsDocumentScanning.getClient(
-            com.google.android.gms.documentscanner.GmsDocumentScannerOptions.Builder()
-                .setResultFormats(com.google.android.gms.documentscanner.GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
-                .setScannerMode(com.google.android.gms.documentscanner.GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+        val scanner = GmsDocumentScanning.getClient(
+            GmsDocumentScannerOptions.Builder()
+                .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
                 .build()
         )
         scanner.getStartScanIntent(requireActivity())
