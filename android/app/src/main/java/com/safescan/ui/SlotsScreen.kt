@@ -74,7 +74,7 @@ fun SlotsScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
         // LAYER 1: Viewfinder Overlay Guides based on Selected Mood
-        ViewfinderOverlay(mode = currentMode, modifier = Modifier.fillMaxSize())
+        ViewfinderOverlay(mode = currentMode, showGrid = showGrid, modifier = Modifier.fillMaxSize())
 
         // LAYER 2: Control Panel and Overlays
         Column(
@@ -557,7 +557,7 @@ private fun PopoverToggleRow(
 }
 
 @Composable
-fun ViewfinderOverlay(mode: ScannerMode, modifier: Modifier = Modifier) {
+fun ViewfinderOverlay(mode: ScannerMode, showGrid: Boolean, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val width = size.width
         val height = size.height
@@ -574,7 +574,7 @@ fun ViewfinderOverlay(mode: ScannerMode, modifier: Modifier = Modifier) {
             }
             ScannerMode.DOCUMENT -> {
                 // Document aspect ratio: A4 (approx. 1.41)
-                rectWidth = width * 0.75f
+                rectWidth = width * 0.95f
                 rectHeight = rectWidth * 1.35f
             }
             ScannerMode.GRID -> {
@@ -628,7 +628,9 @@ fun ViewfinderOverlay(mode: ScannerMode, modifier: Modifier = Modifier) {
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
                 )
             }
-        } else if (mode == ScannerMode.GRID) {
+        }
+        
+        if (showGrid) {
             // Draw standard 3x3 alignment grids
             drawLine(
                 color = Color.White.copy(alpha = 0.35f),
