@@ -793,7 +793,7 @@ export default function App() {
 
         {/* Static Bottom Navigation Bar (Non-Draggable, Fixed at bottom) */}
         {["home", "library", "pdf", "settings", "camera"].includes(currentView) && (
-          <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] md:bottom-[96px] left-1/2 -translate-x-1/2 z-40 w-max no-print cursor-default transition-all duration-300">
+          <div className="absolute bottom-[calc(0.6rem+env(safe-area-inset-bottom,0px))] md:bottom-[32px] left-1/2 -translate-x-1/2 z-40 w-max no-print cursor-default transition-all duration-300">
             <div
               className={`flex items-center bg-[var(--bg-card)]/90 backdrop-blur-xl border border-[var(--border-color)] px-2 py-1.5 gap-1 select-none shadow-2xl rounded-full transition-all duration-300 ${
                 isNavBarVisible

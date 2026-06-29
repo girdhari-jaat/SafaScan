@@ -452,7 +452,7 @@ export const UnifiedViewfinder = React.memo(
       return (
         <div className="w-full h-full bg-[var(--bg-primary)] relative flex flex-col overflow-hidden min-h-0">
           {/* Top Bar: Navigation & Action Controls */}
-          <div className="relative px-6 flex items-center justify-between z-30 bg-[var(--bg-card)] pt-6 pb-2.5 md:pt-8 md:pb-3 border-b border-[var(--border-color)] shrink-0">
+          <div className="relative px-6 flex items-center justify-between z-30 bg-[var(--bg-card)] pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-2.5 md:pt-[calc(2rem+env(safe-area-inset-top,0px))] md:pb-3 border-b border-[var(--border-color)] shrink-0">
             <div className="flex items-center gap-4">
               <button
                 type="button"
@@ -735,66 +735,31 @@ export const UnifiedViewfinder = React.memo(
               {children}
 
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-4 z-10">
-                  {mode === "paper" ? (
-                    (() => {
-                      const ratio = PAPER_RATIOS.A4;
-                      const boxWidth = ratio > 0.75 ? 99 : 99 * (ratio / 0.75);
-                      const boxHeight = ratio > 0.75 ? 99 * (0.75 / ratio) : 99;
+                {(() => {
+                  const isPaper = mode === "paper";
+                  const ratio = PAPER_RATIOS.A4;
+                  const paperWidth = ratio > 0.75 ? 99 : 99 * (ratio / 0.75);
+                  const paperHeight = ratio > 0.75 ? 99 * (0.75 / ratio) : 99;
 
-                      return (
-                        <div
-                          style={{
-                            width: `${boxWidth}%`,
-                            height: `${boxHeight}%`,
-                            boxShadow: "0 0 0 2000px rgba(0, 0, 0, 0.45)",
-                            borderColor: isGridActive ? "var(--primary)" : "rgba(255, 255, 255, 0.2)",
-                          }}
-                          className="rounded-2xl relative flex items-center justify-center transition-all duration-500 border"
-                        >
-                          {/* Corner Markers - Always show for better UI feedback */}
-                          <>
-                            <span style={{ borderColor: "var(--primary)" }} className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 rounded-tl-xl -mt-[2px] -ml-[2px]" />
-                            <span style={{ borderColor: "var(--primary)" }} className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 rounded-tr-xl -mt-[2px] -mr-[2px]" />
-                            <span style={{ borderColor: "var(--primary)" }} className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 rounded-bl-xl -mb-[2px] -ml-[2px]" />
-                            <span style={{ borderColor: "var(--primary)" }} className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-xl -mb-[2px] -mr-[2px]" />
-                          </>
+                  // Fluid transitionable styles
+                  const widthVal = isPaper ? `${paperWidth}%` : "99%";
+                  const heightVal = isPaper ? `${paperHeight}%` : "62.43%"; // exact aspect ratio height for card (99% / 1.5857)
 
-                          {/* Rule-of-Thirds Grid Local to Paper Overlay */}
-                          {isGridActive && (
-                            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-[5]">
-                              <div className="absolute left-1/3 top-0 bottom-0 w-[1px] bg-white/30" />
-                              <div className="absolute left-2/3 top-0 bottom-0 w-[1px] bg-white/30" />
-                              <div className="absolute top-1/3 left-0 right-0 h-[1px] bg-white/30" />
-                              <div className="absolute top-2/3 left-0 right-0 h-[1px] bg-white/30" />
-                            </div>
-                          )}
+                  const guidanceText = activeSlotLabel || (isPaper 
+                    ? "Document Align" 
+                    : (mode === "idcard" ? "ID Card Position" : "Grid Card Position"));
 
-                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
-                            <AnimatePresence>
-                              {isGuidanceVisible && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: 5 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -5 }}
-                                  className="bg-black/60 backdrop-blur-md text-[var(--primary)] border border-[var(--primary)]/30 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] shadow-xl"
-                                >
-                                  {activeSlotLabel || "Document Align"}
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div
+                  return (
+                    <motion.div
+                      layout
                       style={{
-                        width: "99%",
-                        aspectRatio: CARD_RATIOS.LANDSCAPE,
+                        width: widthVal,
+                        height: heightVal,
                         boxShadow: "0 0 0 2000px rgba(0, 0, 0, 0.45)",
                         borderColor: isGridActive ? "var(--primary)" : "rgba(255, 255, 255, 0.2)",
                       }}
-                      className="rounded-2xl relative flex items-center justify-center p-4 transition-all duration-500 border"
+                      transition={{ type: "spring", stiffness: 220, damping: 26 }}
+                      className="rounded-2xl relative flex items-center justify-center transition-colors duration-500 border pointer-events-none"
                     >
                       {/* Corner Markers */}
                       <>
@@ -804,7 +769,7 @@ export const UnifiedViewfinder = React.memo(
                         <span style={{ borderColor: "var(--primary)" }} className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-xl -mb-[2px] -mr-[2px]" />
                       </>
 
-                      {/* Rule-of-Thirds Grid Local to Cards/ID-Card Overlay */}
+                      {/* Rule-of-Thirds Grid */}
                       {isGridActive && (
                         <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-[5]">
                           <div className="absolute left-1/3 top-0 bottom-0 w-[1px] bg-white/30" />
@@ -815,31 +780,31 @@ export const UnifiedViewfinder = React.memo(
                       )}
 
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-4 z-10">
-                        <AnimatePresence>
+                        <AnimatePresence mode="wait">
                           {isGuidanceVisible && (
                             <motion.div
+                              key={guidanceText}
                               initial={{ opacity: 0, y: 5 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
+                              transition={{ duration: 0.2 }}
                               className="bg-black/60 backdrop-blur-md text-[var(--primary)] border border-[var(--primary)]/30 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] shadow-xl"
                             >
-                              {activeSlotLabel ||
-                                (mode === "idcard"
-                                  ? "ID Card Position"
-                                  : "Grid Card Position")}
+                              {guidanceText}
                             </motion.div>
                           )}
                         </AnimatePresence>
                       </div>
-                    </div>
-                  )}
+                    </motion.div>
+                  );
+                })()}
               </div>
             </div>
           </div>
 
           {/* Action Container */}
           {!hideShutter && (
-            <div className="w-[96%] shrink-0 bg-[var(--bg-card)]/80 border border-[var(--border-color)] backdrop-blur-md px-8 py-2 md:py-2.5 flex justify-between items-center relative z-30 mt-1 mb-1 rounded-2xl mx-auto shadow-2xl">
+            <div className="w-[96%] shrink-0 bg-[var(--bg-card)]/80 border border-[var(--border-color)] backdrop-blur-md px-6 py-1.5 md:py-2 flex justify-between items-center relative z-30 mt-0.5 mb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] rounded-xl mx-auto shadow-2xl">
               {/* Gallery Import / Fallback (Fixed/Sticky Corner Layout) */}
               <div className="pointer-events-auto">
                 {onFallbackUploadClick ? (
