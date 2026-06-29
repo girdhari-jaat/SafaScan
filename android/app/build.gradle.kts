@@ -98,7 +98,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax_version")
 
     // ML Kit
-    implementation(platform("com.google.mlkit:mlkit-bom:33.1.2"))
+    implementation(platform("com.google.mlkit:mlkit-bom:32.0.0"))
     implementation("com.google.android.gms:play-services-mlkit-text-recognition")
     implementation("com.google.android.gms:play-services-mlkit-barcode-scanning")
     implementation("com.google.mlkit:document-scanner")
