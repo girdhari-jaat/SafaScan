@@ -6,9 +6,9 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS) // <--- YE LINE BADAL DI. YAHI MASLA THA
     repositories {
-        google() // <--- Ye line sab se pehle hona laazmi hai
+        google() // 
         mavenCentral()
     }
 }
