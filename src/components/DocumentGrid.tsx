@@ -471,7 +471,7 @@ function DocumentGrid({
 
       {/* Bottom Actions Footer - Only show in Selection Mode */}
       {showBars && (
-        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-[var(--bg-card)] border-t border-[var(--border-color)] flex items-center justify-around px-4 pt-1 pb-4 md:pb-2 max-w-[100vw] overflow-x-hidden animate-in slide-in-from-bottom duration-300 shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-[var(--bg-card)] border-t border-[var(--border-color)] flex items-center justify-around px-4 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:pb-2 max-w-[100vw] overflow-x-hidden animate-in slide-in-from-bottom duration-300 shadow-2xl">
           <ActionButton 
             icon={<Share2 size={20} />}
             label="Share" 

@@ -206,8 +206,8 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
         </div>
       ) : (
         <div className="relative w-full h-full">
-          {/* Top Row Overlay */}
-          <div className="absolute top-1.5 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
+          {/* Top Row Overlay - Elegant gradient backdrop shade */}
+          <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center pointer-events-none bg-gradient-to-b from-zinc-950/90 via-zinc-950/60 via-zinc-950/20 to-transparent pt-2.5 pb-5 px-4 rounded-t-[2rem] select-none">
             {/* Top Left: Clean borderless Page index indicator */}
             <div className="text-white text-[11px] font-black tracking-widest uppercase font-mono [text-shadow:0_1.5px_4px_rgba(0,0,0,0.95)] select-none pointer-events-auto">
               P{index + 1} / {total}
@@ -276,8 +276,8 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
             id={`page-preview-img-${page.id}`}
           />
 
-          {/* Bottom Filters Overlay Bar (Super thin, 90% transparent and no glossy blur. Custom checkbox next to label) */}
-          <div className="absolute bottom-1 left-0 right-0 z-20 px-4 pt-0.5 pb-1 bg-gradient-to-t from-zinc-950/15 via-zinc-950/5 to-transparent flex items-center gap-2 select-none pointer-events-auto rounded-b-[2rem]">
+          {/* Bottom Filters Overlay Bar - Elegant semi-transparent shaded gradient */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pt-4 pb-2.5 bg-gradient-to-t from-zinc-950/95 via-zinc-950/70 via-zinc-950/20 to-transparent flex items-center gap-2 select-none pointer-events-auto rounded-b-[2rem]">
             <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 mr-1.5 select-none pointer-events-auto group">
               <input
                 type="checkbox"
@@ -710,7 +710,7 @@ function Editor({
       </div>
 
       {docPages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 bg-[var(--bg-primary)] border border-[var(--border-color)] border-dashed rounded-3xl p-8 text-center" id="empty-pages-state">
+        <div className="flex flex-col items-center justify-center py-24 bg-[var(--bg-primary)] border border-[var(--border-color)] border-dashed rounded-3xl p-8 text-center mx-4 my-4" id="empty-pages-state">
           <div className="w-12 h-12 bg-[var(--bg-card)] p-3 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] mb-3 flex items-center justify-center">
             <Plus className="w-6 h-6" />
           </div>
@@ -737,7 +737,7 @@ function Editor({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col w-full gap-3.5 max-w-md mx-auto mb-[calc(100px+env(safe-area-inset-bottom))]" id="vertical-pages-stack">
+        <div className="flex flex-col w-full gap-3.5 max-w-md mx-auto px-4 pt-4 pb-12 mb-[calc(100px+env(safe-area-inset-bottom))]" id="vertical-pages-stack">
           {docPages.map((page, index) => (
             <SingleVerticalPageCard
               key={page.id}

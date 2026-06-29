@@ -209,7 +209,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onCloseToDefault, onInstal
           {onCloseToDefault && (
             <button 
               onClick={onCloseToDefault}
-              className="w-10 h-10 rounded-2xl bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all cursor-pointer active:scale-90"
+              className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all cursor-pointer active:scale-90"
               title="Close Settings to Home"
             >
               <X className="w-5 h-5" />
@@ -217,13 +217,13 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onCloseToDefault, onInstal
           )}
           <button 
             onClick={onClose}
-            className="w-10 h-10 rounded-2xl bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all cursor-pointer active:scale-90"
+            className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all cursor-pointer active:scale-90"
           >
             <Layout className="w-5 h-5 -rotate-90" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] border border-[var(--primary)]/20">
-              <SettingsIcon className="w-4 h-4" />
+            <div className="w-10 h-10 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] border border-[var(--primary)]/20">
+              <SettingsIcon className="w-5 h-5 animate-spin-slow" />
             </div>
             <div>
               <h2 className="text-xs font-black uppercase tracking-widest text-[var(--text-primary)]">{t.appSettings}</h2>

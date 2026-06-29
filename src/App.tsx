@@ -382,8 +382,7 @@ export default function App() {
     setCurrentView("settings");
     setActiveDocId(null);
     cleanupEmptyDocuments();
-    triggerToast("System: Environment Preferences Loaded");
-  }, [setCurrentView, setActiveDocId, cleanupEmptyDocuments, triggerToast]);
+  }, [setCurrentView, setActiveDocId, cleanupEmptyDocuments]);
 
   React.useEffect(() => {
     try {
@@ -654,7 +653,7 @@ export default function App() {
             currentView === "camera" || currentView === "home"
               ? "p-0 gap-0 h-full"
               : currentView === "editor"
-              ? "px-2 py-3 gap-3"
+              ? "p-0 gap-0"
               : "px-4 py-5 gap-6"
           }`}
           id="app-viewport"
@@ -697,8 +696,10 @@ export default function App() {
 
             {(currentView === "home" || currentView === "camera") && (
               <div
-                className={`flex-1 flex flex-col w-full bg-[var(--bg-primary)] text-[var(--text-primary)] p-0 rounded-none border-0 overflow-hidden relative select-none transition-all duration-300 max-h-[calc(100vh-105px)] md:max-h-[calc(100vh-190px)] ${
-                  isNavBarVisible ? "mb-[76px] md:mb-[148px]" : "mb-0"
+                className={`flex-1 flex flex-col w-full bg-[var(--bg-primary)] text-[var(--text-primary)] p-0 rounded-none border-0 overflow-hidden relative select-none transition-all duration-300 ${
+                  isNavBarVisible
+                    ? "max-h-[calc(100vh-105px-env(safe-area-inset-bottom,0px))] mb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:max-h-[calc(100vh-190px)] md:mb-[148px]"
+                    : "max-h-full mb-0"
                 }`}
                 id="unified-scanner-container"
               >
