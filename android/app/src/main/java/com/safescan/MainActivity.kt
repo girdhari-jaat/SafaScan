@@ -57,7 +57,6 @@ class MainActivity : AppCompatActivity() {
         overlayView = findViewById(R.id.overlayView)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // Switch direct screen ke top-right pe add kar diya
         addDetectionSwitch()
 
         if (allPermissionsGranted()) startCamera()
@@ -73,11 +72,11 @@ class MainActivity : AppCompatActivity() {
                 if(!isChecked) overlayView.clear()
             }
         }
-        
+
         val params = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT, 
+            FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply { 
+        ).apply {
             gravity = Gravity.TOP or Gravity.END
             topMargin = 100
             marginEnd = 30
@@ -91,8 +90,8 @@ class MainActivity : AppCompatActivity() {
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
             val analyzer = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
+               .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+               .build()
             analyzer.setAnalyzer(cameraExecutor, DocumentAnalyzer())
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analyzer)
@@ -118,10 +117,14 @@ class MainActivity : AppCompatActivity() {
         override fun analyze(image: ImageProxy) {
             if (!isDetectionOn) {
                 runOnUiThread { overlayView.clear() }
-                image.close(); return
+                image.close()
+                return
             }
 
-            val bitmap = imageProxyToBitmap(image)?: run { image.close(); return }
+            val bitmap = imageProxyToBitmap(image)?: run {
+                image.close()
+                return
+            }
             val mat = Mat()
             Utils.bitmapToMat(bitmap, mat)
 
@@ -131,4 +134,34 @@ class MainActivity : AppCompatActivity() {
             Imgproc.Canny(gray, gray, 75.0, 200.0)
 
             val contours = mutableListOf<MatOfPoint>()
-            Img
+            Imgproc.findContours(gray, contours, Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE)
+            contours.sortByDescending { Imgproc.contourArea(it) }
+
+            var points: Array<Point>? = null
+            for (contour in contours) {
+                val peri = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
+                val approx = MatOfPoint2f()
+                Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approx, 0.02 * peri, true)
+                if (approx.total() == 4L && Imgproc.contourArea(contour) > 1000) {
+                    points = approx.toArray()
+                    break
+                }
+            }
+
+            runOnUiThread {
+                if (points!= null) overlayView.setPoints(points, bitmap.width.toFloat(), bitmap.height.toFloat())
+                else overlayView.clear()
+            }
+            image.close()
+        } // <-- DocumentAnalyzer ka ye } tha missing
+
+        private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
+            val buffer = image.planes[0].buffer
+            val bytes = ByteArray(buffer.remaining())
+            buffer.get(bytes)
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            val matrix = Matrix().apply { postRotate(image.imageInfo.rotationDegrees.toFloat()) }
+            return Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
+        }
+    } // <-- MainActivity ka ye }
+}
