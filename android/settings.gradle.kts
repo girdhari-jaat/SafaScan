@@ -1,3 +1,4 @@
+// Enforce Google repositories
 pluginManagement {
     repositories {
         google()
