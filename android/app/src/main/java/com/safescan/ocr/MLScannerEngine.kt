@@ -3,19 +3,15 @@ package com.safescan.ocr
 import android.graphics.Bitmap
 import com.google.mlkit.vision.common.InputImage
 import com.safescan.core.AppResult
-import com.safescan.android.ml.local.LocalMLEngine
 import com.safescan.scanner.DocumentScannerEngine
 import com.safescan.scanner.ScannerEngineType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
 
 data class ProcessedImage(val bitmap: Bitmap)
 
-@Singleton
-class MLScannerEngine @Inject constructor(
-    mlEngine: LocalMLEngine
+class MLScannerEngine(
+    mlEngine: com.safescan.scanner.MLScannerEngine? = null
 ) : DocumentScannerEngine(mlEngine) {
 
     suspend fun processFrame(bitmap: Bitmap): AppResult<ProcessedImage> = withContext(Dispatchers.IO) {
@@ -30,10 +26,13 @@ class MLScannerEngine @Inject constructor(
         }
     }
 
-    override suspend fun scanDocument(bitmap: Bitmap): AppResult<Bitmap> = withContext(Dispatchers.Default) {
-        // If we are in MLKIT mode, we still want the perspective warp from super.scanDocument
-        // or we can use ML Kit specific results if we had them.
-        // For now, ensuring super.scanDocument is called to utilize its high-performance warping logic.
-        super.scanDocument(bitmap)
+    override suspend fun scanDocument(bitmap: Bitmap): AppResult<Bitmap> {
+        if (engineType == ScannerEngineType.MLKIT) {
+            return when (val result = processFrame(bitmap)) {
+                is AppResult.Success -> AppResult.Success(result.data.bitmap)
+                is AppResult.Error -> AppResult.Error(result.message, result.e)
+            }
+        }
+        return super.scanDocument(bitmap)
     }
 }
