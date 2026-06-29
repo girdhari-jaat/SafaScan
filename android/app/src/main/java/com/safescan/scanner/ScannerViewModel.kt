@@ -88,9 +88,6 @@ class ScannerViewModel @Inject constructor(
     val uiLanguage: StateFlow<String> = settingsRepository.uiLanguageFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "en")
 
-    private val _editingBatchIndex = MutableStateFlow<Int?>(null)
-    val editingBatchIndex: StateFlow<Int?> = _editingBatchIndex
-
     val liveDetect: StateFlow<Boolean> = settingsRepository.liveDetectFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -401,61 +398,18 @@ class ScannerViewModel @Inject constructor(
         }
     }
 
-    fun rotateEditingBitmap() {
-        editingBitmapPreview.value?.let { bmp ->
-            val matrix = android.graphics.Matrix()
-            matrix.postRotate(90f)
-            val rotated = android.graphics.Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
-            editingBitmapPreview.value = rotated
-            // We also update original if we want the rotation to be permanent across filter resets
-            editingBitmapOriginal.value?.let { orig ->
-                val matrixOrig = android.graphics.Matrix()
-                matrixOrig.postRotate(90f)
-                editingBitmapOriginal.value = android.graphics.Bitmap.createBitmap(orig, 0, 0, orig.width, orig.height, matrixOrig, true)
-            }
-        }
-    }
-
     fun closeEditor(save: Boolean) {
         if (save) {
             editingBitmapPreview.value?.let { processed ->
-                viewModelScope.launch(Dispatchers.IO) {
-                    val index = _editingBatchIndex.value
-                    if (index != null && index < capturedJpgFiles.size) {
-                        // Editing a batch file
-                        val file = capturedJpgFiles[index]
-                        try {
-                            java.io.FileOutputStream(file).use { out ->
-                                processed.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
-                            }
-                            withContext(Dispatchers.Main) {
-                                capturedJpgFiles[index] = file // Trigger refresh
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    } else if (editingSlotId.value != null) {
-                        // Editing a slot in memory
-                        withContext(Dispatchers.Main) {
-                            captureToSlot(processed, editingSlotId.value!!)
-                        }
-                    }
-                    withContext(Dispatchers.Main) {
-                        finishCloseEditor()
-                    }
+                editingSlotId.value?.let { slotId ->
+                    captureToSlot(processed, slotId)
                 }
-            } ?: finishCloseEditor()
-        } else {
-            finishCloseEditor()
+            }
         }
-    }
-
-    private fun finishCloseEditor() {
         isEditing.value = false
         editingSlotId.value = null
         editingBitmapOriginal.value = null
         editingBitmapPreview.value = null
-        _editingBatchIndex.value = null
         recognizedText.value = null
         isOcrRunning.value = false
     }

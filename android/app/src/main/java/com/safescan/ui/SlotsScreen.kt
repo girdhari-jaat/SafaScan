@@ -809,11 +809,8 @@ fun DocumentGridView(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Color.DarkGray)
                                     .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                    .clickable { 
-                                        viewModel.openEditorFromBatch(idx)
-                                        onDismiss()
-                                    }
                             ) {
+                                bitmap?.let { bmp ->
                                     Image(
                                         bitmap = bmp.asImageBitmap(),
                                         contentDescription = "Page ${idx + 1}",
@@ -862,10 +859,6 @@ fun DocumentGridView(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Color.DarkGray)
                                     .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        viewModel.openEditorFromBatch(idx)
-                                        onDismiss()
-                                    }
                             ) {
                                 slot.bitmap?.let { bmp ->
                                     Image(
