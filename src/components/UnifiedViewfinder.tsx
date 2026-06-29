@@ -804,7 +804,7 @@ export const UnifiedViewfinder = React.memo(
 
           {/* Action Container */}
           {!hideShutter && (
-            <div className="w-[96%] shrink-0 bg-[var(--bg-card)]/80 border border-[var(--border-color)] backdrop-blur-md px-6 py-1.5 md:py-2 flex justify-between items-center relative z-30 mt-0.5 mb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] rounded-xl mx-auto shadow-2xl">
+            <div className="w-[96%] shrink-0 bg-[var(--bg-card)]/80 border border-[var(--border-color)] backdrop-blur-md px-6 py-1.5 md:py-2 flex justify-between items-center relative z-30 mt-0.5 mb-1.5 rounded-xl mx-auto shadow-2xl">
               {/* Gallery Import / Fallback (Fixed/Sticky Corner Layout) */}
               <div className="pointer-events-auto">
                 {onFallbackUploadClick ? (
