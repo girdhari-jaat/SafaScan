@@ -5,13 +5,13 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS) // <--- YE LINE BADAL DI. YAHI MASLA THA
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google() // 
+        google()
         mavenCentral()
     }
 }
 
-rootProject.name = "SanadOCR"
 include(":app")
