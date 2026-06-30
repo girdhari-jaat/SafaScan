@@ -151,7 +151,7 @@ export async function saveImageToGallery(base64Image: string, fileName: string):
   await Filesystem.writeFile({
     path: `Pictures/MyApp/${fileName}`,
     data: base64Image,
-    directory: Directory.ExternalStorage,
+    directory: Directory.Documents,
     recursive: true
   });
 }
@@ -159,9 +159,9 @@ export async function saveImageToGallery(base64Image: string, fileName: string):
 export async function savePdfToDownloads(base64Pdf: string, fileName: string): Promise<void> {
   const { Filesystem, Directory } = await import('@capacitor/filesystem');
   await Filesystem.writeFile({
-    path: `Download/${fileName}`,
+    path: `Download/MyApp/${fileName}`,
     data: base64Pdf,
-    directory: Directory.ExternalStorage,
+    directory: Directory.Documents,
     recursive: true
   });
 }
@@ -188,19 +188,19 @@ export async function saveOrShareBlob(
       await Filesystem.writeFile({
         path: `Pictures/MyApp/${fileName}`,
         data: base64Data,
-        directory: Directory.ExternalStorage,
+        directory: Directory.Documents,
         recursive: true
       });
       alert(`Image saved in gallery`);
     } else {
       const writeResult = await Filesystem.writeFile({
-        path: `Download/${fileName}`,
+        path: `Download/MyApp/${fileName}`,
         data: base64Data,
-        directory: Directory.ExternalStorage,
+        directory: Directory.Documents,
         recursive: true
       });
       
-      if (window.confirm("Saved to Downloads. Share now?")) {
+      if (window.confirm("Saved to Downloads/MyApp. Share now?")) {
         await Share.share({
           title: title || fileName,
           text: fileName,
