@@ -1,10 +1,10 @@
 // AUDITED: Removed unused imports (warpQuadrilateral, loadImageElement)
-import { getImageBlob } from './db';
-import { ScanPage } from '../types';
+import { getImageBlob } from "./db";
+import { ScanPage } from "../types";
 
 export interface PDFExportOptions {
-  pageSize: 'a4' | 'letter' | 'fit';
-  orientation: 'portrait' | 'landscape' | 'auto';
+  pageSize: "a4" | "letter" | "fit";
+  orientation: "portrait" | "landscape" | "auto";
   quality: number; // 0.1 to 1.0
   documentTitle: string;
   password?: string;
@@ -18,19 +18,25 @@ export interface PDFExportOptions {
 export async function exportDocumentToPDF(
   pages: ScanPage[],
   options: PDFExportOptions,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
 ): Promise<Blob> {
   const { pageSize, orientation, quality, password } = options;
   const total = pages.length;
-  
+
   if (total === 0) {
-    throw new Error('No pages to export');
+    throw new Error("No pages to export");
   }
 
   const pagesData: { blob: Blob; page: ScanPage }[] = [];
 
-  const savedHdMode = typeof window !== 'undefined' ? localStorage.getItem('hdMode') : 'Fast';
-  const hdModeSuffix = savedHdMode === 'High' ? '_High' : savedHdMode === 'Standard' ? '_Standard' : '_Fast';
+  const savedHdMode =
+    typeof window !== "undefined" ? localStorage.getItem("hdMode") : "Fast";
+  const hdModeSuffix =
+    savedHdMode === "High"
+      ? "_High"
+      : savedHdMode === "Standard"
+        ? "_Standard"
+        : "_Fast";
 
   for (let i = 0; i < total; i++) {
     if (onProgress) {
@@ -46,45 +52,47 @@ export async function exportDocumentToPDF(
     }
     const pageWithSourceType = {
       ...page,
-      sourceType: ((page as any).sourceType || 'paper') + hdModeSuffix
+      sourceType: ((page as any).sourceType || "paper") + hdModeSuffix,
     };
     pagesData.push({ blob, page: pageWithSourceType as any });
   }
 
   // Import worker client helper to run the PDF generation process fully off-thread
-  const { generatePDFOffThread } = await import('./imageWorkerClient');
+  const { generatePDFOffThread } = await import("./imageWorkerClient");
   return generatePDFOffThread(pagesData, {
     pageSize,
     orientation,
     quality: quality || 1.0,
-    password
+    password,
   });
 }
 
 export async function generatePDFFromCards(
   cards: any[],
   title: string,
-  action: 'save' | 'share' | 'print' | 'download',
-  mode: 'idcard' | 'grid'
+  action: "save" | "share" | "print" | "download",
+  mode: "idcard" | "grid",
 ): Promise<void> {
   try {
-    const isIdCard = mode === 'idcard';
+    const isIdCard = mode === "idcard";
     const iterations = isIdCard ? 8 : cards.length;
-    const cardsData: ({ blob: Blob; card: any } | null)[] = new Array(iterations).fill(null);
+    const cardsData: ({ blob: Blob; card: any } | null)[] = new Array(
+      iterations,
+    ).fill(null);
     const loadedBlobs = new Map<string, Blob>();
 
     for (let i = 0; i < iterations; i++) {
-        const sourceIndex = isIdCard ? i % cards.length : i;
-        const card = cards[sourceIndex];
-        if (!card) continue;
+      const sourceIndex = isIdCard ? i % cards.length : i;
+      const card = cards[sourceIndex];
+      if (!card) continue;
 
       const imageId = card.imageId || card.originalImageId;
-      
+
       if (!loadedBlobs.has(imageId)) {
         const b = await getImageBlob(imageId);
         if (b) loadedBlobs.set(imageId, b);
       }
-      
+
       const blob = loadedBlobs.get(imageId);
       if (!blob) continue;
 
@@ -93,37 +101,56 @@ export async function generatePDFFromCards(
         cropPoints: card.corners,
         rotate: card.rotation,
         filter: card.filter,
-        adjustments: card.adjustments
+        adjustments: card.adjustments,
       };
 
-      const savedHdMode = typeof window !== 'undefined' ? localStorage.getItem('hdMode') : 'Fast';
-      const hdModeSuffix = savedHdMode === 'High' ? '_High' : savedHdMode === 'Standard' ? '_Standard' : '_Fast';
+      const savedHdMode =
+        typeof window !== "undefined" ? localStorage.getItem("hdMode") : "Fast";
+      const hdModeSuffix =
+        savedHdMode === "High"
+          ? "_High"
+          : savedHdMode === "Standard"
+            ? "_Standard"
+            : "_Fast";
 
       const finalCard = {
         corners: meta.cropPoints || meta.corners || card.corners,
-        rotation: typeof meta.rotate === 'number' ? meta.rotate : (card.rotation || 0),
-        filter: meta.filter || card.filter || 'original',
-        adjustments: card.adjustments || { brightness: 0, contrast: 0, saturation: 0, sharpness: 0, shadows: 0, temperature: 0 },
+        rotation:
+          typeof meta.rotate === "number" ? meta.rotate : card.rotation || 0,
+        filter: meta.filter || card.filter || "original",
+        adjustments: card.adjustments || {
+          brightness: 0,
+          contrast: 0,
+          saturation: 0,
+          sharpness: 0,
+          shadows: 0,
+          temperature: 0,
+        },
         originalIndex: sourceIndex,
-        sourceType: (mode === 'idcard' ? 'idcard' : 'grid') + hdModeSuffix
+        sourceType: (mode === "idcard" ? "idcard" : "grid") + hdModeSuffix,
       };
 
       cardsData[i] = { blob, card: finalCard };
     }
 
-    if (cardsData.filter(c => !!c).length === 0) {
-      throw new Error('No valid cards captured to generate PDF');
+    if (cardsData.filter((c) => !!c).length === 0) {
+      throw new Error("No valid cards captured to generate PDF");
     }
 
-    const { generateCardPDFOffThread } = await import('./imageWorkerClient');
+    const { generateCardPDFOffThread } = await import("./imageWorkerClient");
     const pdfBlob = await generateCardPDFOffThread(cardsData, {
       mode,
       title,
-      quality: 0.9
+      quality: 0.9,
     });
 
-    const filename = `${title || 'Scan'}.pdf`;
-    await shareOrDownloadFile(pdfBlob, filename, title, action === 'download' || action === 'save');
+    const filename = `${title || "Scan"}.pdf`;
+    await shareOrDownloadFile(
+      pdfBlob,
+      filename,
+      title,
+      action === "download" || action === "save",
+    );
   } catch (err) {
     console.error("PDF generation from cards failed:", err);
     throw err;
@@ -138,7 +165,7 @@ function blobToBase64(blob: Blob): Promise<string> {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
-      const base64 = result.split(',')[1];
+      const base64 = result.split(",")[1];
       resolve(base64);
     };
     reader.onerror = reject;
@@ -146,23 +173,29 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export async function saveImageToGallery(base64Image: string, fileName: string): Promise<void> {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+export async function saveImageToGallery(
+  base64Image: string,
+  fileName: string,
+): Promise<void> {
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
   await Filesystem.writeFile({
     path: `Pictures/MyApp/${fileName}`,
     data: base64Image,
     directory: Directory.Documents,
-    recursive: true
+    recursive: true,
   });
 }
 
-export async function savePdfToDownloads(base64Pdf: string, fileName: string): Promise<void> {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+export async function savePdfToDownloads(
+  base64Pdf: string,
+  fileName: string,
+): Promise<void> {
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
   await Filesystem.writeFile({
     path: `Download/SafeScan/${fileName}`,
     data: base64Pdf,
     directory: Directory.Documents,
-    recursive: true
+    recursive: true,
   });
 }
 
@@ -173,76 +206,45 @@ export async function saveOrShareBlob(
   blob: Blob,
   fileName: string,
   title?: string,
-  forceSaveDirectly: boolean = false
+  forceSaveDirectly: boolean = false,
 ): Promise<void> {
-  const { Capacitor } = await import('@capacitor/core');
-  
-  if (Capacitor.isNativePlatform()) {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const { Share } = await import('@capacitor/share');
-    const base64Data = await blobToBase64(blob);
-    
-    const isImage = fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.png');
-    
-    if (isImage) {
-      try {
-        const { Media } = await import('@capacitor-community/media');
-        
-        // Find or create album
-        let albumId;
-        const { albums } = await Media.getAlbums();
-        let album = albums.find(a => a.name === 'SafeScan');
-        
-        if (!album) {
-          await Media.createAlbum({ name: 'SafeScan' });
-          const updatedAlbums = await Media.getAlbums();
-          album = updatedAlbums.albums.find(a => a.name === 'SafeScan');
-        }
-        
-        if (album) {
-          albumId = album.identifier;
-        }
+  const { Capacitor } = await import("@capacitor/core");
 
-        const mimeType = fileName.toLowerCase().endsWith('.png') ? 'png' : 'jpeg';
-        const dataUrl = `data:image/${mimeType};base64,${base64Data}`;
-        
-        await Media.savePhoto({
-          path: dataUrl,
-          albumIdentifier: albumId,
-          fileName: fileName.replace(/\.[^/.]+$/, "")
-        });
-        alert(`Image saved in DCIM/SafeScan`);
-      } catch (err) {
-        console.error("Media plugin failed, falling back to Filesystem:", err);
-        await Filesystem.writeFile({
-          path: `DCIM/SafeScan/${fileName}`,
-          data: base64Data,
-          directory: Directory.Documents,
-          recursive: true
-        });
-        alert(`Image saved in DCIM/SafeScan (Documents fallback)`);
-      }
-    } else {
-      const writeResult = await Filesystem.writeFile({
-        path: `Download/SafeScan/${fileName}`,
+  if (Capacitor.isNativePlatform()) {
+    const { Media } = await import("@capacitor-community/media");
+    const base64Data = await blobToBase64(blob);
+
+    const isImage =
+      fileName.toLowerCase().endsWith(".jpg") ||
+      fileName.toLowerCase().endsWith(".png");
+
+    if (isImage) {
+      const mimeType = fileName.toLowerCase().endsWith(".png")
+        ? "image/png"
+        : "image/jpeg";
+      // @ts-ignore
+      await Media.saveFile({
+        path: fileName,
+        album: "DCIM/SafeScan",
         data: base64Data,
-        directory: Directory.Documents,
-        recursive: true
+        mimeType: mimeType,
       });
-      
-      if (window.confirm("Saved to Downloads/SafeScan. Share now?")) {
-        await Share.share({
-          title: title || fileName,
-          text: fileName,
-          url: writeResult.uri
-        });
-      }
+      alert(`Image saved in DCIM/SafeScan`);
+    } else {
+      // @ts-ignore
+      await Media.saveFile({
+        path: fileName,
+        album: "Download/SafeScan",
+        data: base64Data,
+        mimeType: "application/pdf",
+      });
+      alert(`PDF saved in Download/SafeScan`);
     }
     return;
   } else {
     // Web Browser fallback
     const downloadUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = downloadUrl;
     link.download = fileName;
     document.body.appendChild(link);
@@ -260,35 +262,42 @@ export async function shareOrDownloadFile(
   blob: Blob,
   fileName: string,
   title?: string,
-  forceDownload: boolean = false
+  forceDownload: boolean = false,
 ): Promise<void> {
   // Normalize fileName to end with .pdf if not yet present
-  let normalizedName = fileName.trim() || 'Scanned_Doc';
-  if (!normalizedName.toLowerCase().endsWith('.pdf')) {
-    normalizedName += '.pdf';
+  let normalizedName = fileName.trim() || "Scanned_Doc";
+  if (!normalizedName.toLowerCase().endsWith(".pdf")) {
+    normalizedName += ".pdf";
   }
 
-  const file = new File([blob], normalizedName, { type: 'application/pdf' });
+  const file = new File([blob], normalizedName, { type: "application/pdf" });
 
   // Native Web Share API integration (perfect for Android APK wrapper context)
-  if (!forceDownload && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+  if (
+    !forceDownload &&
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
     try {
       await navigator.share({
         files: [file],
         title: title || normalizedName,
-        text: 'Scanned Document (PDF)'
+        text: "Scanned Document (PDF)",
       });
       return; // Shared natively with success
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (err instanceof Error && err.name === "AbortError") {
         // User voluntarily dismissed share menu - stop execution, do not download fallback
         return;
       }
-      console.warn('Native web share failed, falling back to instant browser downloader:', err);
+      console.warn(
+        "Native web share failed, falling back to instant browser downloader:",
+        err,
+      );
     }
   }
 
   // Fallback to standard universal downloader/sharer
   await saveOrShareBlob(blob, normalizedName, title, forceDownload);
 }
-

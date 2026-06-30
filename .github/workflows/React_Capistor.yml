@@ -84,6 +84,12 @@ jobs:
           gradle-version: "8.5"
           build-root-directory: android
 
+      - name: Install Dependencies
+        run: npm install @capacitor-community/media
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
       - name: Build Capacitor APK
         run: |
           cd android
