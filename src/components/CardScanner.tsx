@@ -143,6 +143,8 @@ interface CardScannerProps {
   onChangeTab?: (tab: "paper" | "idcard" | "grid") => void;
   onAutosave?: (cards: (CardData | null)[]) => Promise<void>;
   onSaveSession?: (cards: (CardData | null)[]) => Promise<void>;
+  onRegisterHandlers?: (handlers: any) => void;
+  hideViewfinder?: boolean;
 }
 
 export function CardScanner({
@@ -153,6 +155,8 @@ export function CardScanner({
   onChangeTab,
   onAutosave,
   onSaveSession,
+  onRegisterHandlers,
+  hideViewfinder = false,
 }: CardScannerProps) {
   const [isSlotsVisible, setIsSlotsVisible] = useState(false);
 
@@ -324,14 +328,34 @@ export function CardScanner({
 
     let animFrameId: number;
 
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      if (canvas.width !== Math.round(rect.width) || canvas.height !== Math.round(rect.height)) {
-        canvas.width = Math.round(rect.width);
-        canvas.height = Math.round(rect.height);
+    // Cache layout size so we don't query getBoundingClientRect on every frame
+    let dtw = canvas.clientWidth || 300;
+    let dth = canvas.clientHeight || 150;
+    
+    if (canvas.width !== dtw || canvas.height !== dth) {
+      canvas.width = dtw;
+      canvas.height = dth;
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const rect = entry.contentRect;
+        const w = Math.round(rect.width || canvas.clientWidth || 300);
+        const h = Math.round(rect.height || canvas.clientHeight || 150);
+        dtw = w;
+        dth = h;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
       }
-      const dtw = canvas.width;
-      const dth = canvas.height;
+    });
+    resizeObserver.observe(canvas);
+
+    // Cache computed styles outside the high-frequency loop to prevent style recalculation thrashing
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#10b981';
+
+    const draw = () => {
       ctx.clearRect(0, 0, dtw, dth);
 
       if (detectedCorners && (detectedCorners as any).tl && settings.autoDetectEnabled) {
@@ -340,27 +364,30 @@ export function CardScanner({
         const p2 = { x: (detectedCorners.br.x / 100) * dtw, y: (detectedCorners.br.y / 100) * dth };
         const p3 = { x: (detectedCorners.bl.x / 100) * dtw, y: (detectedCorners.bl.y / 100) * dth };
 
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#10b981';
+        ctx.strokeStyle = primaryColor;
         ctx.lineWidth = 3;
         
         ctx.beginPath();
         ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
         ctx.closePath();
-        ctx.fillStyle = `color-mix(in srgb, ${getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#10b981'} 15%, transparent)`;
+        ctx.fillStyle = `color-mix(in srgb, ${primaryColor} 15%, transparent)`;
         ctx.fill();
         ctx.stroke();
         
         [p0, p1, p2, p3].forEach(p => {
           ctx.beginPath();
           ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#10b981';
+          ctx.fillStyle = primaryColor;
           ctx.fill();
         });
       }
       animFrameId = requestAnimationFrame(draw);
     };
     animFrameId = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(animFrameId);
+    return () => {
+      cancelAnimationFrame(animFrameId);
+      resizeObserver.disconnect();
+    };
   }, [detectedCorners, settings.autoDetectEnabled]);
 
   const capturedCount = filledSlots.filter(s => s === 'filled').length;
@@ -370,6 +397,264 @@ export function CardScanner({
   } else if (mode === 'grid') {
     const cardNum = Math.floor(capturedCount / 2) + 1;
     displaySlotLabel = capturedCount % 2 === 0 ? `Front ${cardNum}` : `Back ${cardNum}`;
+  }
+
+  // Register handlers with parent when they change or on mount
+  useEffect(() => {
+    if (onRegisterHandlers) {
+      onRegisterHandlers({
+        captureFrame,
+        onFallbackUpload: () => fileInputRef.current?.click(),
+        batchCount: filledSlots.filter((s) => s === "filled").length,
+        activeSlotLabel: displaySlotLabel,
+        isCapturing,
+        hideShutter: isSlotsVisible,
+        onBatchToggle: () => {
+          if (filledSlots.some((s) => s === "filled")) {
+            setIsSlotsVisible(prev => !prev);
+          }
+        }
+      });
+    }
+  }, [
+    onRegisterHandlers,
+    captureFrame,
+    filledSlots,
+    displaySlotLabel,
+    isCapturing,
+    isSlotsVisible,
+    setIsSlotsVisible
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (onRegisterHandlers) {
+        onRegisterHandlers(null);
+      }
+    };
+  }, [onRegisterHandlers]);
+
+  if (hideViewfinder) {
+    return (
+      <>
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept="image/*"
+          capture={settings?.usePhoneCamera ? "environment" : undefined}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              uploadImage(slotIndex, file);
+              e.target.value = "";
+            }
+          }}
+        />
+
+        {/* Slots Sidebar / Bottom bar */}
+        <div
+          className={`bg-[var(--bg-primary)] flex flex-col z-50 overflow-hidden ${isSlotsVisible ? "fixed md:relative inset-0 md:inset-auto h-full w-full md:w-96 border-[var(--border-color)] md:border-t-0 md:border-l" : "hidden md:flex md:min-w-0 md:w-0 md:h-full shrink-0 border-0"}`}
+        >
+          {isSlotsVisible && (
+            <>
+              <div className="flex items-center justify-between px-4 h-12 shrink-0 border-b border-[var(--border-color)]">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <ScanLine
+                    size={16}
+                    className="text-[var(--primary)] shrink-0 animate-pulse"
+                  />
+                  <span className="text-xs font-black uppercase tracking-widest text-[var(--text-secondary)] truncate transition-all duration-200 animate-in fade-in">
+                    Slots Queue
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsSlotsVisible(!isSlotsVisible)}
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] p-1 rounded-lg transition-all"
+                  title="Toggle Slots Queue"
+                >
+                  <ChevronDown className="md:hidden w-4 h-4" />
+                  <ChevronDown className="hidden md:block w-4 h-4 rotate-90" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+                <div className="grid grid-cols-2 gap-3">
+                  {SLOTS.map((slot, idx) => (
+                    <CardSlotItem
+                      key={slot.id}
+                      index={idx}
+                      label={slot.name}
+                      isSelected={slotIndex === idx}
+                      status={filledSlots[idx]}
+                      onSelect={handleSlotClick}
+                      gridSlotsRef={gridSlotsRef}
+                      onDelete={deleteSlot}
+                      card={cardsRef.current[idx]}
+                      onUpload={uploadImage}
+                      previewUrl={previewUrls[idx]}
+                    />
+                  ))}
+                </div>
+
+                {pdfReady && (
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="w-full mt-6 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-[var(--primary)]/40 active:scale-95 transition-all text-xs uppercase tracking-widest cursor-pointer animate-in fade-in duration-200"
+                  >
+                    <Download size={18} /> Export PDF
+                  </button>
+                )}
+
+                {/* Live A4 Layout Sheet Preview */}
+                {filledSlots.some(s => s === 'filled') && mode === 'idcard' && (
+                  <div className="w-full flex flex-col gap-2.5 mt-8 border-t border-[var(--border-color)] pt-6 animate-in fade-in slide-in-from-bottom-3 duration-350">
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-[var(--primary)]">
+                        Print Preview A4 ({mode === 'idcard' ? '1 Card Repeated' : '8 Cards Grid'})
+                      </span>
+                      <span className="text-[10px] font-mono text-[var(--text-secondary)]">
+                        210 x 297 mm
+                      </span>
+                    </div>
+                    <div
+                      className="w-full rounded-2xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl relative select-none"
+                      style={{ aspectRatio: "210/297" }}
+                    >
+                      {Array.from({ length: 8 }).map((_, i) => {
+                        const col = i % 2; 
+                        const row = Math.floor(i / 2); 
+                        
+                        const leftMm = 15.4 + col * (85.6 + 8.0);
+                        const topMm = 22.5 + row * (54.0 + 12.0);
+  
+                        const leftPercent = (leftMm / 210) * 100;
+                        const topPercent = (topMm / 297) * 100;
+                        const widthPercent = (85.6 / 210) * 100;
+                        const heightPercent = (54.0 / 297) * 100;
+  
+                        // For idcard mode, we repeat the first 2 images (front/back) across 4 rows
+                        const previewUrl = mode === 'idcard' ? previewUrls[col] : previewUrls[i];
+                        if (!previewUrl) return null;
+  
+                        return (
+                          <div
+                            key={i}
+                            className="absolute border border-zinc-700 bg-black rounded flex items-center justify-center overflow-hidden"
+                            style={{
+                              left: `${leftPercent}%`,
+                              top: `${topPercent}%`,
+                              width: `${widthPercent}%`,
+                              height: `${heightPercent}%`,
+                            }}
+                          >
+                            <img
+                              src={previewUrl}
+                              alt={`Slot ${i}`}
+                              className="w-full h-full object-cover rounded"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {showExportModal && (
+          <ExportModal
+            isOpen={showExportModal}
+            onClose={() => setShowExportModal(false)}
+            defaultTitle={documentTitle}
+            onExport={(opts) => executeExport(opts.title, opts.action as any)}
+          />
+        )}
+
+        {cropCardIndex !== null && activeCropCard && (
+          <div className="fixed inset-0 z-[60]">
+            <CropWrapper
+              card={activeCropCard}
+              onSave={async (_blob: Blob, corners: any, rot: number, fil: any, adj: any) => {
+                const card = cardsRef.current[cropCardIndex];
+                if (card) {
+                  const updated = {
+                    ...card,
+                    corners,
+                    rotation: rot,
+                    filter: fil,
+                    adjustments: adj,
+                  };
+                  cardsRef.current[cropCardIndex] = updated;
+                  await persistSession();
+                }
+                setCropCardIndex(null);
+              }}
+              onSaveAndNext={(() => {
+                const nextIndex = filledSlots.slice(cropCardIndex + 1).findIndex(s => s === 'filled');
+                if (nextIndex === -1) return undefined;
+                
+                return async (_blob: Blob, corners: any, rot: number, fil: any, adj: any) => {
+                  // Save current
+                  const currentCard = cardsRef.current[cropCardIndex];
+                  if (currentCard) {
+                    const updated = {
+                      ...currentCard,
+                      corners,
+                      rotation: rot,
+                      filter: fil,
+                      adjustments: adj,
+                    };
+                    cardsRef.current[cropCardIndex] = updated;
+                    await persistSession();
+                  }
+                  
+                  // Jump to next absolute index
+                  const absoluteNext = cropCardIndex + 1 + nextIndex;
+                  setCropCardIndex(absoluteNext);
+                };
+              })()}
+              onCancel={() => setCropCardIndex(null)}
+            />
+          </div>
+        )}
+
+        {showRestorePrompt && (
+          <div className="fixed inset-0 z-[100] bg-[var(--bg-overlay)] backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 text-center shadow-2xl relative">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">Recover Saved Session?</h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                We found images from your previous scanning session. Would you like to restore them and continue editing?
+              </p>
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowRestorePrompt(false);
+                    await restoreSession();
+                  }}
+                  className="flex-1 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-extrabold rounded-xl transition duration-150 cursor-pointer text-xs"
+                >
+                  Yes, Restore
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRestorePrompt(false);
+                    clearAllSlots();
+                  }}
+                  className="flex-1 py-3 bg-[var(--bg-card)] hover:bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-secondary)] font-bold rounded-xl transition duration-150 cursor-pointer text-xs"
+                >
+                  No, Start Fresh
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   return (

@@ -152,7 +152,8 @@ function blobToBase64(blob: Blob): Promise<string> {
 export async function saveOrShareBlob(
   blob: Blob,
   fileName: string,
-  title?: string
+  title?: string,
+  forceSaveDirectly: boolean = false
 ): Promise<void> {
   const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
 
@@ -162,6 +163,59 @@ export async function saveOrShareBlob(
       const { Share } = await import('@capacitor/share');
 
       const base64Data = await blobToBase64(blob);
+      const isImage = fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.png');
+      const saveDirectly = forceSaveDirectly || isImage;
+
+      if (saveDirectly) {
+        let directory = Directory.ExternalStorage;
+        let destPath = '';
+
+        if (isImage) {
+          destPath = 'Pictures/' + fileName;
+        } else {
+          destPath = 'Download/' + fileName;
+        }
+
+        try {
+          // Request permissions on Android if required
+          try {
+            const permStatus = await Filesystem.checkPermissions();
+            if (permStatus.publicStorage !== 'granted') {
+              await Filesystem.requestPermissions();
+            }
+          } catch (pe) {
+            console.warn('Permission check/request not supported or failed:', pe);
+          }
+
+          await Filesystem.writeFile({
+            path: destPath,
+            data: base64Data,
+            directory: directory,
+            recursive: true
+          });
+
+          if (isImage) {
+            alert(`تصویر کامیابی سے گیلری میں محفوظ ہو گئی ہے! / تصوير ڪاميابيءَ سان گيلري ۾ محفوظ ٿي وئي آهي!\nSaved directly to: Pictures/${fileName}`);
+          } else {
+            alert(`پی ڈی ایف کامیابی سے ڈاؤن لوڈز میں محفوظ ہو گیا ہے! / پي ڊي ايف ڪاميابيءَ سان ڊائون لوڊ ۾ محفوظ ٿي ويو آهي!\nSaved directly to: Download/${fileName}`);
+          }
+          return;
+        } catch (writeErr) {
+          console.error('Direct external storage write failed, trying fallback to Documents:', writeErr);
+          try {
+            await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Documents,
+              recursive: true
+            });
+            alert(`فائل کامیابی سے Documents فولڈر میں محفوظ ہو گئی ہے! / فائل ڪاميابيءَ سان Documents فولڊر ۾ محفوظ ٿي وئي آهي!\nSaved to Documents/${fileName}`);
+            return;
+          } catch (fallbackErr) {
+            console.error('All direct saving attempts failed, falling back to Share sheet:', fallbackErr);
+          }
+        }
+      }
 
       // Save to a temp file in cache so we don't need storage permissions
       const writeResult = await Filesystem.writeFile({
@@ -231,6 +285,6 @@ export async function shareOrDownloadFile(
   }
 
   // Fallback to standard universal downloader/sharer
-  await saveOrShareBlob(blob, normalizedName, title);
+  await saveOrShareBlob(blob, normalizedName, title, forceDownload);
 }
 

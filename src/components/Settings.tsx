@@ -82,6 +82,20 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onCloseToDefault, onInstal
   const [diagLoading, setDiagLoading] = useState(false);
   const [diagResult, setDiagResult] = useState<any>(null);
   const [benchmarkResult, setBenchmarkResult] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  React.useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const brandColors = [
     { id: 'emerald', hex: '#10b981', label: 'Emerald' },
@@ -206,20 +220,12 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onCloseToDefault, onInstal
       {/* Top Header Row */}
       <div className="flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-3">
-          {onCloseToDefault && (
-            <button 
-              onClick={onCloseToDefault}
-              className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all cursor-pointer active:scale-90"
-              title="Close Settings to Home"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
           <button 
             onClick={onClose}
             className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] transition-all cursor-pointer active:scale-90"
+            title="Close Settings"
           >
-            <Layout className="w-5 h-5 -rotate-90" />
+            <X className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] border border-[var(--primary)]/20">
@@ -625,7 +631,7 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onCloseToDefault, onInstal
                     {(t as any).networkStatus || "Network Status"}
                   </span>
                   <span className="text-[var(--primary)] font-bold font-sans">
-                    {navigator.onLine ? "Online (Live)" : "Offline Shield"}
+                    {isOnline ? "Online (Live)" : "Offline Shield"}
                   </span>
                 </div>
 

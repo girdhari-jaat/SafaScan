@@ -109,7 +109,8 @@ export function useCardScannerHook({ mode, initialPages: _initialPages, onAutosa
   const SLOTS = mode === 'idcard' ? CNIC_SLOTS : GRID_SLOTS;
   const slotCount = SLOTS.length;
 
-  const isLowMemory = typeof navigator !== 'undefined' && (navigator as any).deviceMemory ? (navigator as any).deviceMemory < 3 : false;
+  const isLowMemoryDevice = typeof navigator !== 'undefined' && (navigator as any).deviceMemory ? (navigator as any).deviceMemory < 3 : false;
+  const isLowMemory = isLowMemoryDevice || settings.hdMode === 'Fast';
   const [slotIndex, setSlotIndex] = useState(0);
   const [filledSlots, setFilledSlots] = useState<CardSlotStatus[]>(new Array(slotCount).fill('empty'));
   const [isCapturing, setIsCapturing] = useState(false);

@@ -351,16 +351,35 @@ function Scanner({
 
     let animFrameId: number;
 
-    const drawCanvasFrame = () => {
-      const rect = canvas.getBoundingClientRect();
-      const dtw = Math.round(rect.width);
-      const dth = Math.round(rect.height);
+    // Cache layout size so we don't query getBoundingClientRect on every frame
+    let dtw = canvas.clientWidth || 300;
+    let dth = canvas.clientHeight || 150;
+    
+    if (canvas.width !== dtw || canvas.height !== dth) {
+      canvas.width = dtw;
+      canvas.height = dth;
+    }
 
-      if (canvas.width !== dtw || canvas.height !== dth) {
-        canvas.width = dtw;
-        canvas.height = dth;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const rect = entry.contentRect;
+        const w = Math.round(rect.width || canvas.clientWidth || 300);
+        const h = Math.round(rect.height || canvas.clientHeight || 150);
+        dtw = w;
+        dth = h;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
       }
+    });
+    resizeObserver.observe(canvas);
 
+    // Cache computed styles outside the high-frequency loop to prevent style recalculation thrashing
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#10b981';
+    const bgCardColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#ffffff';
+
+    const drawCanvasFrame = () => {
       ctx.clearRect(0, 0, dtw, dth);
 
       // 1. Draw detected boundaries
@@ -377,13 +396,13 @@ function Scanner({
         ctx.lineTo(p3.x, p3.y);
         ctx.closePath();
 
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+        ctx.strokeStyle = primaryColor;
         ctx.lineWidth = 3;
         ctx.lineJoin = 'round';
         ctx.stroke();
 
         if (currentTab !== 'idcard') {
-          ctx.fillStyle = `color-mix(in srgb, ${getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()} 12%, transparent)`;
+          ctx.fillStyle = `color-mix(in srgb, ${primaryColor} 12%, transparent)`;
           ctx.fill();
         }
 
@@ -392,9 +411,9 @@ function Scanner({
         points.forEach(p => {
           ctx.beginPath();
           ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
-          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+          ctx.fillStyle = primaryColor;
           ctx.fill();
-          ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim();
+          ctx.strokeStyle = bgCardColor;
           ctx.lineWidth = 1.5;
           ctx.stroke();
         });
@@ -409,6 +428,7 @@ function Scanner({
 
     return () => {
       cancelAnimationFrame(animFrameId);
+      resizeObserver.disconnect();
     };
   }, [camProps, detectedCorners, settings.showGrid, settings.autoDetectEnabled, getOverlayDimensions]);
 

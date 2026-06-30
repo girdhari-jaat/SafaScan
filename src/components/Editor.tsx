@@ -189,23 +189,23 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
           </span>
         </div>
       ) : (
-        <div className="relative w-full h-full">
-          {/* Top Row Overlay - Elegant gradient backdrop shade */}
-          <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center pointer-events-none bg-gradient-to-b from-zinc-950/90 via-zinc-950/60 via-zinc-950/20 to-transparent pt-2.5 pb-5 px-4 rounded-t-[2rem] select-none">
+        <div className="flex flex-col w-full h-full">
+          {/* Top Row Header Bar */}
+          <div className="flex justify-between items-center bg-[var(--bg-primary)]/80 border-b border-[var(--border-color)] py-2.5 px-4 select-none">
             {/* Top Left: Clean borderless Page index indicator */}
-            <div className="text-white text-[11px] font-black tracking-widest uppercase font-mono [text-shadow:0_1.5px_4px_rgba(0,0,0,0.95)] select-none pointer-events-auto">
-              P{index + 1} / {total}
+            <div className="text-[var(--text-primary)] text-[11px] font-black tracking-widest uppercase font-mono">
+              Page {index + 1} / {total}
             </div>
 
-            {/* Top Right: Borderless floating Page Card Actions */}
-            <div className="flex gap-2.5 items-center pointer-events-auto">
+            {/* Top Right: Page Card Actions */}
+            <div className="flex gap-2 items-center">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTriggerDocAI(page, index, imgUrl);
                 }}
-                className="p-1 rounded-full text-amber-400 hover:text-amber-300 transition-all aspect-square flex items-center justify-center active:scale-90 [filter:drop-shadow(0_1.5px_3px_rgba(0,0,0,0.95))]"
+                className="p-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-primary)] text-amber-500 hover:text-amber-400 transition-all aspect-square flex items-center justify-center active:scale-90"
                 title="SafeScan AI Smart Extract"
               >
                 <Sparkles className="w-4 h-4 fill-amber-500/15" />
@@ -216,7 +216,7 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="p-1 rounded-full text-white hover:text-sky-300 transition-all aspect-square flex items-center justify-center active:scale-95 [filter:drop-shadow(0_1.5px_3px_rgba(0,0,0,0.95))]"
+                className="p-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all aspect-square flex items-center justify-center active:scale-95"
                 title="Crop, rotate or apply filters"
               >
                 <SlidersHorizontal className="w-4 h-4" />
@@ -228,7 +228,7 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
                   handleSaveToGallery();
                 }}
                 disabled={isSaving}
-                className="p-1 rounded-full text-zinc-100 hover:text-white transition-all aspect-square flex items-center justify-center active:scale-95 [filter:drop-shadow(0_1.5px_3px_rgba(0,0,0,0.95))]"
+                className="p-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all aspect-square flex items-center justify-center active:scale-95"
                 title="Save Image copy"
               >
                 {isSaving ? (
@@ -243,7 +243,7 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
                   e.stopPropagation();
                   onDelete();
                 }}
-                className="p-1 rounded-full text-rose-500 hover:text-rose-400 transition-all aspect-square flex items-center justify-center active:scale-95 [filter:drop-shadow(0_1.5px_3px_rgba(0,0,0,0.95))]"
+                className="p-1.5 rounded-xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 transition-all aspect-square flex items-center justify-center active:scale-95"
                 title="Delete page"
               >
                 <Trash2 className="w-4 h-4" />
@@ -251,17 +251,19 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
             </div>
           </div>
 
-          {/* Actual image displayed full bleed */}
-          <img
-            src={imgUrl}
-            onClick={onImageClick}
-            className="w-full h-auto cursor-zoom-in pointer-events-auto block rounded-[2rem]"
-            title="Click to view full screen"
-            id={`page-preview-img-${page.id}`}
-          />
+          {/* Actual image displayed full bleed but styled without obstructing layout */}
+          <div className="w-full bg-[var(--bg-card)] flex items-center justify-center p-3 select-none">
+            <img
+              src={imgUrl}
+              onClick={onImageClick}
+              className="max-h-[500px] w-auto h-auto cursor-zoom-in pointer-events-auto block rounded-2xl border border-[var(--border-color)]/60 shadow-inner"
+              title="Click to view full screen"
+              id={`page-preview-img-${page.id}`}
+            />
+          </div>
 
-          {/* Bottom Filters Overlay Bar - Elegant semi-transparent shaded gradient */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pt-4 pb-2.5 bg-gradient-to-t from-zinc-950/95 via-zinc-950/70 via-zinc-950/20 to-transparent flex items-center gap-2 select-none pointer-events-auto rounded-b-[2rem]">
+          {/* Bottom Filters Bar */}
+          <div className="bg-[var(--bg-primary)]/80 border-t border-[var(--border-color)] px-4 py-2.5 flex items-center gap-2 select-none w-full">
             <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0 mr-1.5 select-none pointer-events-auto group">
               <input
                 type="checkbox"
@@ -275,15 +277,15 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
                 }}
                 className="sr-only"
               />
-              <div className={`w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center transition-all duration-200 ${
+              <div className={`w-4 h-4 rounded-[6px] border flex items-center justify-center transition-all duration-200 ${
                 applyToAll
                   ? 'bg-[var(--primary)] border-[var(--primary)] shadow-[0_0_6px_rgba(var(--primary-rgb),0.75)]'
-                  : 'border-zinc-400/80 bg-zinc-950/40 hover:border-white'
+                  : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--text-secondary)]'
               }`}>
                 {applyToAll && <Check className="w-2.5 h-2.5 text-white stroke-[4]" />}
               </div>
-              <span className="text-[8.5px] font-extrabold text-zinc-300 uppercase tracking-widest font-mono [text-shadow:0_1px_2px_rgba(0,0,0,0.95)] group-hover:text-white transition-colors">
-                Filters
+              <span className="text-[9px] font-extrabold text-[var(--text-secondary)] uppercase tracking-widest font-mono group-hover:text-[var(--text-primary)] transition-colors">
+                Apply To All
               </span>
             </label>
             <div className="flex gap-1.5 items-center overflow-x-auto pb-0.5 scrollbar-none flex-nowrap w-full" id={`quick-filters-row-${page.id}`}>
@@ -294,17 +296,14 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
                     type="button"
                     key={preset.id}
                     onClick={() => onUpdateFilter(page.id, preset.id, applyToAll)}
-                    className={`px-2.5 py-1 duration-200 text-[10px] font-black tracking-wider uppercase whitespace-nowrap bg-transparent cursor-pointer font-sans transition-all relative ${
+                    className={`px-3 py-1.5 rounded-xl border text-[10px] font-black tracking-wider uppercase whitespace-nowrap cursor-pointer font-sans transition-all relative ${
                       isActive
-                        ? 'text-[var(--primary)] scale-[1.03] [text-shadow:0_2px_4px_rgba(0,0,0,0.95)]'
-                        : 'text-zinc-300/85 hover:text-white [text-shadow:0_1.5px_3px_rgba(0,0,0,0.9)]'
+                        ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)]'
                     }`}
                     title={`Apply ${preset.name} filter`}
                   >
                     {preset.name}
-                    {isActive && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3.5 h-[1.5px] bg-[var(--primary)] rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb),0.85)]" />
-                    )}
                   </button>
                 );
               })}

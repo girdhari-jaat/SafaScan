@@ -262,6 +262,44 @@ export default function App() {
     }
   }, [handleGlobalBackPress, handleAndroidBackButton]);
 
+  React.useEffect(() => {
+    let listenerPromise: Promise<any> | null = null;
+    let lastBackButtonPress = 0;
+
+    const setupBackButton = async () => {
+      const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
+      if (!isCapacitor) return;
+
+      try {
+        const { App: CapApp } = await import('@capacitor/app');
+        
+        listenerPromise = CapApp.addListener('backButton', () => {
+          if (currentView === 'home') {
+            const now = Date.now();
+            if (now - lastBackButtonPress < 2000) {
+              CapApp.exitApp();
+            } else {
+              lastBackButtonPress = now;
+              triggerToast("بند کرنے کے لیے دوبارہ دبائیں / بند ڪرڻ لاءِ ٻيهر دٻايو (Press again to exit)");
+            }
+          } else {
+            handleGlobalBack();
+          }
+        });
+      } catch (err) {
+        console.error('Failed to set up back button listener:', err);
+      }
+    };
+
+    setupBackButton();
+
+    return () => {
+      if (listenerPromise) {
+        listenerPromise.then(l => l.remove()).catch(err => console.error(err));
+      }
+    };
+  }, [currentView, handleGlobalBack, triggerToast]);
+
   const handleSelectDocument = React.useCallback(
     (id: string) => {
       setActiveDocId(id);
@@ -782,7 +820,7 @@ export default function App() {
                   <ViewSettings
                     documentsCount={documents.length}
                     onClose={() => setCurrentView("library")}
-                    onCloseToDefault={handleTabHome}
+                    onCloseToDefault={() => setCurrentView("library")}
                     canInstall={!!deferredPrompt}
                     triggerToast={triggerToast}
                     onInstall={async () => {

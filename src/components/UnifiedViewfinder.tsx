@@ -157,18 +157,38 @@ export const UnifiedViewfinder = React.memo(
         if (!ctx) return;
 
         let animFrameId: number;
+        
+        // Cache layout size so we don't query getBoundingClientRect on every frame
+        let dtw = canvas.clientWidth || 300;
+        let dth = canvas.clientHeight || 150;
+        
+        if (canvas.width !== dtw || canvas.height !== dth) {
+          canvas.width = dtw;
+          canvas.height = dth;
+        }
+
+        const resizeObserver = new ResizeObserver((entries) => {
+          for (let entry of entries) {
+            const rect = entry.contentRect;
+            const w = Math.round(rect.width || canvas.clientWidth || 300);
+            const h = Math.round(rect.height || canvas.clientHeight || 150);
+            dtw = w;
+            dth = h;
+            if (canvas.width !== w || canvas.height !== h) {
+              canvas.width = w;
+              canvas.height = h;
+            }
+          }
+        });
+        resizeObserver.observe(canvas);
+
+        // Cache computed color outside the high-frequency loop to prevent style recalculation thrashing
+        const primaryColor =
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--primary")
+            .trim() || "#10b981";
 
         const drawOverlay = () => {
-          const rect = canvas.getBoundingClientRect();
-          const dtw = Math.round(rect.width);
-          const dth = Math.round(rect.height);
-
-          // React to layout adjustments or rotation dynamically
-          if (canvas.width !== dtw || canvas.height !== dth) {
-            canvas.width = dtw;
-            canvas.height = dth;
-          }
-
           ctx.clearRect(0, 0, dtw, dth);
 
           // Only draw if auto-detect setting is active and corners are locked
@@ -229,11 +249,6 @@ export const UnifiedViewfinder = React.memo(
               p3 = mapPoint(detectedCorners.bl);
             }
 
-            const primaryColor =
-              getComputedStyle(document.documentElement)
-                .getPropertyValue("--primary")
-                .trim() || "#10b981";
-
             ctx.beginPath();
             ctx.moveTo(p0.x, p0.y);
             ctx.lineTo(p1.x, p1.y);
@@ -270,6 +285,7 @@ export const UnifiedViewfinder = React.memo(
         animFrameId = requestAnimationFrame(drawOverlay);
         return () => {
           cancelAnimationFrame(animFrameId);
+          resizeObserver.disconnect();
         };
       }, [detectedCorners, settings?.autoDetectEnabled]);
 
@@ -752,9 +768,8 @@ export const UnifiedViewfinder = React.memo(
                     widthVal = `${paperWidth}%`;
                     heightVal = `${paperHeight}%`;
                   } else if (mode === "idcard" || mode === "grid") {
-                    const ratio = CARD_RATIOS.LANDSCAPE;
                     widthVal = "99%";
-                    heightVal = `${(99 / ratio) * 0.85}%`;
+                    heightVal = "auto";
                   }
 
                   const guidanceText = activeSlotLabel || (isPaper 
@@ -767,6 +782,7 @@ export const UnifiedViewfinder = React.memo(
                       style={{
                         width: widthVal,
                         height: heightVal,
+                        aspectRatio: (mode === "idcard" || mode === "grid") ? `${CARD_RATIOS.LANDSCAPE}` : undefined,
                         boxShadow: "0 0 0 2000px rgba(0, 0, 0, 0.45)",
                         borderColor: isGridActive ? "var(--primary)" : "rgba(255, 255, 255, 0.2)",
                       }}

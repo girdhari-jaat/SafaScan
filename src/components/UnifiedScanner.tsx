@@ -372,6 +372,7 @@ const UnifiedScanner: React.FC<UnifiedScannerProps> = ({
   
   const viewfinderRef = useRef<UnifiedViewfinderRef>(null);
   const [isGridViewVisible, setIsGridViewVisible] = useState(false);
+  const [registeredHandlers, setRegisteredHandlers] = useState<any>(null);
 
   // Initialize camera on mount and cleanup on unmount - ONLY FOR PAPER MODE
   useEffect(() => {
@@ -453,6 +454,37 @@ const UnifiedScanner: React.FC<UnifiedScannerProps> = ({
     }
   };
 
+  // Stable handlers to prevent unmounting/flickering of action bar controls
+  const handleFallbackUploadClick = () => {
+    if (isCardMode) {
+      if (registeredHandlers?.onFallbackUpload) {
+        registeredHandlers.onFallbackUpload();
+      }
+    } else {
+      onFallbackUpload();
+    }
+  };
+
+  const handleCaptureClick = () => {
+    if (isCardMode) {
+      if (registeredHandlers?.captureFrame) {
+        registeredHandlers.captureFrame();
+      }
+    } else {
+      onCaptureClick();
+    }
+  };
+
+  const handleBatchToggleClick = () => {
+    if (isCardMode) {
+      if (registeredHandlers?.onBatchToggle) {
+        registeredHandlers.onBatchToggle();
+      }
+    } else {
+      onBatchToggle();
+    }
+  };
+
   const handleUpdateSetting = (key: string, value: any) => {
     updateSetting(key as any, value);
   };
@@ -466,23 +498,13 @@ const UnifiedScanner: React.FC<UnifiedScannerProps> = ({
   };
 
   // Switch layouts seamlessly based on currentTab setting
-  if (currentTab === 'idcard' || currentTab === 'grid') {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const dynamicTitle = settings?.scannerSubTab === 'idcard' 
-      ? `CNIC ${dateStr} ${timeStr}` 
-      : `Grid ${dateStr} ${timeStr}`;
-
-    return (
-      <CardScanner
-        mode={currentTab}
-        onClose={onClose}
-        onChangeTab={onChangeTab}
-        documentTitle={dynamicTitle}
-      />
-    );
-  }
+  const isCardMode = currentTab === 'idcard' || currentTab === 'grid';
+  const now = new Date();
+  const dateStr = now.toLocaleDateString();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const dynamicTitle = currentTab === 'idcard' 
+    ? `CNIC ${dateStr} ${timeStr}` 
+    : `Grid ${dateStr} ${timeStr}`;
 
   return (
     <div className="w-full h-full relative" id="unified-scanner-wrapper">
@@ -494,32 +516,47 @@ const UnifiedScanner: React.FC<UnifiedScannerProps> = ({
         onChange={handlePhoneCameraFileChange} 
         className="hidden" 
       />
-      <UnifiedViewfinder
-        ref={viewfinderRef}
-        mode={mode}
-        aspectRatio={0.707} 
-        quality={settings.hdMode}
-        onClose={onClose}
-        onChangeTab={handleTabChange}
-        currentTab={mode}
-        flashMode={settings.flashMode}
-        onToggleFlash={handleToggleFlash}
-        onUpdateSetting={handleUpdateSetting}
-        onUpdateResolution={handleUpdateResolution}
-        hdMode={settings.hdMode}
-        settings={settings}
-        activeSlotLabel={displaySlotLabel}
-        onCaptureClick={onCaptureClick}
-        onDoneClick={onDone}
-        onFallbackUploadClick={onFallbackUpload}
-        isBatchMode={settings.batchScan}
-        onBatchToggle={onBatchToggle}
-        batchCount={pages.length}
-        isCapturing={isCapturing}
-        showGrid={settings.showGrid}
-        showGuidance={true}
-        hideShutter={isGridViewVisible}
-      />
+      <div className="w-full h-full flex flex-col md:flex-row items-stretch min-h-0">
+        <div className="relative flex-1 bg-black flex flex-col items-center justify-center overflow-hidden min-h-0 select-none">
+          <UnifiedViewfinder
+            ref={viewfinderRef}
+            mode={isCardMode ? currentTab : mode}
+            aspectRatio={isCardMode ? (85.6/53.98) : 0.707} 
+            quality={settings.hdMode}
+            onClose={onClose}
+            onChangeTab={handleTabChange}
+            currentTab={currentTab}
+            flashMode={settings.flashMode}
+            onToggleFlash={handleToggleFlash}
+            onUpdateSetting={handleUpdateSetting}
+            onUpdateResolution={handleUpdateResolution}
+            hdMode={settings.hdMode}
+            settings={settings}
+            activeSlotLabel={isCardMode ? (registeredHandlers?.activeSlotLabel || displaySlotLabel) : displaySlotLabel}
+            onCaptureClick={handleCaptureClick}
+            onDoneClick={onDone}
+            onFallbackUploadClick={handleFallbackUploadClick}
+            isBatchMode={isCardMode ? true : settings.batchScan}
+            onBatchToggle={handleBatchToggleClick}
+            batchCount={isCardMode ? (registeredHandlers?.batchCount ?? 0) : pages.length}
+            isCapturing={isCardMode ? (registeredHandlers?.isCapturing ?? false) : isCapturing}
+            showGrid={settings.showGrid}
+            showGuidance={true}
+            hideShutter={isCardMode ? (registeredHandlers?.hideShutter ?? false) : isGridViewVisible}
+          />
+        </div>
+
+        {isCardMode && (
+          <CardScanner
+            mode={currentTab}
+            onClose={onClose}
+            onChangeTab={onChangeTab}
+            documentTitle={dynamicTitle}
+            onRegisterHandlers={setRegisteredHandlers}
+            hideViewfinder={true}
+          />
+        )}
+      </div>
 
       {isGridViewVisible && pages.length > 0 && (
         <GridView 

@@ -92,7 +92,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
   const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
   const [cameraError, setCameraError] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [supportsTorch, setSupportsTorch] = useState(false);
+  const [supportsTorch, setSupportsTorch] = useState(true);
   const [detectedCorners, setDetectedCorners] = useState<any>(null);
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -197,6 +197,24 @@ export function CameraProvider({ children }: { children: ReactNode }) {
     };
   }, [settings.autoDetectEnabled, isReady, cameraError, settings.scannerSubTab]);
 
+  const torchStateRef = useRef<boolean | null>(null);
+  const isCapturingInternalRef = useRef(false);
+
+  const applyTorch = useCallback(async (on: boolean) => {
+    if (!videoTrack || typeof videoTrack.applyConstraints !== 'function') return;
+    if (torchStateRef.current === on) return;
+    
+    try {
+      await videoTrack.applyConstraints({
+        advanced: [{ torch: on } as any]
+      });
+      torchStateRef.current = on;
+      addLog(`Torch applied: ${on}`);
+    } catch (e) {
+      addLog(`Torch attempt failed: ${e}`);
+    }
+  }, [videoTrack]);
+
   const captureFrame = useCallback(async (options: { targetWidth: number; aspectRatio: number }): Promise<Blob | null> => {
     if (isCapturingInternalRef.current) return null;
     if (!videoRef.current || !stream) {
@@ -208,11 +226,25 @@ export function CameraProvider({ children }: { children: ReactNode }) {
     const video = videoRef.current;
     let canvas = canvasRef.current || document.createElement('canvas');
 
+    const shouldFlash = settings.flashMode === 'auto' && isDarkRef.current && supportsTorch;
+    if (shouldFlash) {
+      try {
+        await applyTorch(true);
+        // Wait 150ms for the flash to fully light up the scene and the camera sensor's auto-exposure to adjust
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      } catch (e) {
+        console.warn("[CameraContext] Failed to turn on flash for auto-capture:", e);
+      }
+    }
+
     try {
       // Explicitly guarantee video dimensions and playing state
       const isReadyForDraw = await ensureVideoReady(video);
       if (!isReadyForDraw) {
         console.warn("[CameraContext] captureFrame cancelled: video element not resolving/playing");
+        if (shouldFlash) {
+          try { await applyTorch(false); } catch (e) {}
+        }
         isCapturingInternalRef.current = false;
         return null;
       }
@@ -251,6 +283,9 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) {
+        if (shouldFlash) {
+          try { await applyTorch(false); } catch (e) {}
+        }
         isCapturingInternalRef.current = false;
         return null;
       }
@@ -272,9 +307,16 @@ export function CameraProvider({ children }: { children: ReactNode }) {
           0.95
         );
       });
+
+      if (shouldFlash) {
+        try { await applyTorch(false); } catch (e) {}
+      }
       isCapturingInternalRef.current = false;
       return blob;
     } catch (err) {
+      if (shouldFlash) {
+        try { await applyTorch(false); } catch (e) {}
+      }
       isCapturingInternalRef.current = false;
       console.error("[CameraContext] captureFrame runtime error:", err);
       // Fallback: raw stretched grab
@@ -294,25 +336,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       }
       return null;
     }
-  }, [stream, videoRef, canvasRef]);
-
-  const torchStateRef = useRef<boolean | null>(null);
-  const isCapturingInternalRef = useRef(false);
-
-  const applyTorch = useCallback(async (on: boolean) => {
-    if (!videoTrack || typeof videoTrack.applyConstraints !== 'function' || !supportsTorch) return;
-    if (torchStateRef.current === on) return;
-    
-    try {
-      await videoTrack.applyConstraints({
-        advanced: [{ torch: on } as any]
-      });
-      torchStateRef.current = on;
-      addLog(`Torch applied: ${on}`);
-    } catch (e) {
-      addLog(`Torch attempt failed: ${e}`);
-    }
-  }, [videoTrack, supportsTorch]);
+  }, [stream, videoRef, canvasRef, settings.flashMode, supportsTorch, applyTorch]);
 
   const applyFocus = useCallback(async (mode: 'single' | 'continuous') => {
     if (!videoTrack || typeof videoTrack.applyConstraints !== 'function') return;
@@ -365,11 +389,9 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       try {
         if (settings.flashMode === 'torch') {
           await applyTorch(true);
-        } else if (settings.flashMode === 'off') {
+        } else {
+          // off or auto - keep torch OFF during preview!
           await applyTorch(false);
-        } else if (settings.flashMode === 'auto') {
-          // Apply current sensed state
-          await applyTorch(isDarkRef.current);
         }
       } catch (err) {
         console.warn('Hardware flash sync failed:', err);
@@ -395,19 +417,17 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       
       const avgBrightness = lastValues.reduce((acc, val) => acc + val, 0) / lastValues.length;
       
-      // Hysteresis: turn on if < 90, turn off if > 115
+      // Hysteresis: detect dark if < 90, detect light if > 115
       const isDarkNow = isDarkRef.current ? avgBrightness < 115 : avgBrightness < 90;
 
       if (isDarkRef.current !== isDarkNow) {
         isDarkRef.current = isDarkNow;
-        if (settings.flashMode === 'auto') {
-          await applyTorch(isDarkNow);
-        }
+        // Do NOT call applyTorch during preview! Only measure ambient darkness.
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [settings.flashMode, getBrightness, stream, isReady, applyTorch]);
+  }, [settings.flashMode, getBrightness, stream, isReady]);
 
   const stopCamera = useCallback(() => {
     shouldBeRunningRef.current = false;
@@ -504,9 +524,13 @@ export function CameraProvider({ children }: { children: ReactNode }) {
         if (!shouldBeRunningRef.current || startCounterRef.current !== currentStartId || restartCounterRef.current !== currentRestartId) return;
         try {
           const capabilities = track.getCapabilities() as any;
-          setSupportsTorch(!!capabilities?.torch);
+          if (capabilities && 'torch' in capabilities) {
+            setSupportsTorch(!!capabilities.torch);
+          } else {
+            setSupportsTorch(true);
+          }
         } catch (e) {
-          setSupportsTorch(false);
+          setSupportsTorch(true);
         }
       }, 500);
 

@@ -207,8 +207,8 @@ export function useScannerHook({ onCapture }: UseScannerHookProps) {
       let bitmap = await imageCapture.grabFrame();
       
       // Method B: Shrink Captured Canvas Frame Size for paper mode to save RAM and persist low pixel frames
-      const activeMode = settings.scannerSubTab || 'paper';
-      const isCardMode = activeMode === 'idcard' || activeMode === 'grid';
+      const activeMode = 'paper';
+      const isCardMode = false;
       if (!isCardMode) {
         let maxCaptureDim = 1920;
         if (settings.hdMode === 'Fast') {
@@ -307,7 +307,7 @@ export function useScannerHook({ onCapture }: UseScannerHookProps) {
       const cardId = crypto.randomUUID();
       await saveImageBlob(cardId, blob); // disk pe original
       
-      let cropPoints = getDefaultQuad(bitmap.width, bitmap.height, settings.scannerSubTab);
+      let cropPoints = getDefaultQuad(bitmap.width, bitmap.height, 'paper');
       let usedFallback = true;
       
       const needsDetection = Boolean(settings.autoDetectEnabled || settings.showGrid || settings.autoCrop);
@@ -317,7 +317,7 @@ export function useScannerHook({ onCapture }: UseScannerHookProps) {
         rotate: 0,
         filter: 'original',
         adjustments: { b: 0, c: 0, s: 0 },
-        scanMode: settings.scannerSubTab,
+        scanMode: 'paper',
         usedFallback,
         timestamp: Date.now()
       });
