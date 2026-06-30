@@ -191,4 +191,88 @@ export async function saveOrShareBlob(
 
     const isImage =
       fileName.toLowerCase().endsWith(".jpg") ||
-      fileName.to
+      fileName.toLowerCase().endsWith(".png");
+
+    try {
+      if (isImage) {
+        // Android 10+ : DCIM folder me bina permission save
+        await Media.saveFile({
+          path: `DCIM/SafeScan/${fileName}`,
+          data: base64Data,
+          album: 'DCIM/SafeScan'
+        });
+        alert(`Image saved in Gallery (DCIM/SafeScan)`);
+      } else {
+        // Android 10+ : Downloads folder me bina permission save
+        // Note: Android 10+ pe MediaStore URI ko Share plugin share nahi kar sakta
+        await Media.saveFile({
+          path: `Download/SafeScan/${fileName}`,
+          data: base64Data,
+          album: 'Download/SafeScan'
+        });
+        alert(`PDF saved to Downloads/SafeScan`);
+      }
+      return;
+    } catch (e) {
+      console.error("Media.saveFile failed, falling back to web download", e);
+    }
+  }
+
+  // Web Browser fallback OR if Media failed on native
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(downloadUrl);
+}
+
+/**
+ * Shares a PDF file using Web Share API if supported (excellent for APKs / mobile browsers),
+ * or falls back to our universal saver/sharer.
+ */
+export async function shareOrDownloadFile(
+  blob: Blob,
+  fileName: string,
+  title?: string,
+  forceDownload: boolean = false,
+): Promise<void> {
+  // Normalize fileName to end with.pdf if not yet present
+  let normalizedName = fileName.trim() || "Scanned_Doc";
+  if (!normalizedName.toLowerCase().endsWith(".pdf")) {
+    normalizedName += ".pdf";
+  }
+
+  const file = new File([blob], normalizedName, { type: "application/pdf" });
+
+  // Native Web Share API integration (perfect for Android APK wrapper context)
+  if (
+   !forceDownload &&
+    navigator.share &&
+    navigator.canShare &&
+    navigator.canShare({ files: [file] })
+  ) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: title || normalizedName,
+        text: "Scanned Document (PDF)",
+      });
+      return; // Shared natively with success
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        // User voluntarily dismissed share menu - stop execution, do not download fallback
+        return;
+      }
+      console.warn(
+        "Native web share failed, falling back to instant browser downloader:",
+        err,
+      );
+    }
+  }
+
+  // Fallback to standard universal downloader/sharer
+  await saveOrShareBlob(blob, normalizedName, title, forceDownload);
+}
