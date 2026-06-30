@@ -54,15 +54,9 @@ export function useAppHook() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const [exportModal, setExportModal] = useState<{ isOpen: boolean; doc: ScanDocument | null }>({ isOpen: false, doc: null });
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfReaderRef = useRef<{ triggerBrowse: () => void; triggerReset?: () => void } | null>(null);
-
-  
-  useEffect(() => {
-    setHasUnsavedChanges(pages.length > 0);
-  }, [pages]);
 
   useEffect(() => {
     if (currentView === 'home' || currentView === 'camera' || currentView === 'card') {
@@ -817,7 +811,6 @@ export function useAppHook() {
     handlePDFExportRequest,
     handleExportConfirmed,
     activeDoc,
-    triggerToast,
-    hasUnsavedChanges
+    triggerToast
   };
 }

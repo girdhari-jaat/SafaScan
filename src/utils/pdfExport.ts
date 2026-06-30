@@ -146,6 +146,26 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+export async function saveImageToGallery(base64Image: string, fileName: string): Promise<void> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  await Filesystem.writeFile({
+    path: `Pictures/MyApp/${fileName}`,
+    data: base64Image,
+    directory: Directory.ExternalStorage,
+    recursive: true
+  });
+}
+
+export async function savePdfToDownloads(base64Pdf: string, fileName: string): Promise<void> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
+  await Filesystem.writeFile({
+    path: `Download/${fileName}`,
+    data: base64Pdf,
+    directory: Directory.ExternalStorage,
+    recursive: true
+  });
+}
+
 /**
  * Universal file saver/sharer that works in both standard web browsers and Capacitor-wrapped mobile apps (APKs).
  */
@@ -155,97 +175,51 @@ export async function saveOrShareBlob(
   title?: string,
   forceSaveDirectly: boolean = false
 ): Promise<void> {
-  const isCapacitor = typeof window !== 'undefined' && (window as any).Capacitor;
-
-  if (isCapacitor) {
-    try {
-      const { Filesystem, Directory } = await import('@capacitor/filesystem');
-      const { Share } = await import('@capacitor/share');
-
-      const base64Data = await blobToBase64(blob);
-      const isImage = fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.png');
-      const saveDirectly = forceSaveDirectly || isImage;
-
-      if (saveDirectly) {
-        let directory = Directory.ExternalStorage;
-        let destPath = '';
-
-        if (isImage) {
-          destPath = 'Pictures/' + fileName;
-        } else {
-          destPath = 'Download/' + fileName;
-        }
-
-        try {
-          // Request permissions on Android if required
-          try {
-            const permStatus = await Filesystem.checkPermissions();
-            if (permStatus.publicStorage !== 'granted') {
-              await Filesystem.requestPermissions();
-            }
-          } catch (pe) {
-            console.warn('Permission check/request not supported or failed:', pe);
-          }
-
-          await Filesystem.writeFile({
-            path: destPath,
-            data: base64Data,
-            directory: directory,
-            recursive: true
-          });
-
-          if (isImage) {
-            alert(`تصویر کامیابی سے گیلری میں محفوظ ہو گئی ہے! / تصوير ڪاميابيءَ سان گيلري ۾ محفوظ ٿي وئي آهي!\nSaved directly to: Pictures/${fileName}`);
-          } else {
-            alert(`پی ڈی ایف کامیابی سے ڈاؤن لوڈز میں محفوظ ہو گیا ہے! / پي ڊي ايف ڪاميابيءَ سان ڊائون لوڊ ۾ محفوظ ٿي ويو آهي!\nSaved directly to: Download/${fileName}`);
-          }
-          return;
-        } catch (writeErr) {
-          console.error('Direct external storage write failed, trying fallback to Documents:', writeErr);
-          try {
-            await Filesystem.writeFile({
-              path: fileName,
-              data: base64Data,
-              directory: Directory.Documents,
-              recursive: true
-            });
-            alert(`فائل کامیابی سے Documents فولڈر میں محفوظ ہو گئی ہے! / فائل ڪاميابيءَ سان Documents فولڊر ۾ محفوظ ٿي وئي آهي!\nSaved to Documents/${fileName}`);
-            return;
-          } catch (fallbackErr) {
-            console.error('All direct saving attempts failed, falling back to Share sheet:', fallbackErr);
-          }
-        }
-      }
-
-      // Save to a temp file in cache so we don't need storage permissions
-      const writeResult = await Filesystem.writeFile({
-        path: fileName,
+  const { Capacitor } = await import('@capacitor/core');
+  
+  if (Capacitor.isNativePlatform()) {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Share } = await import('@capacitor/share');
+    const base64Data = await blobToBase64(blob);
+    
+    const isImage = fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.png');
+    
+    if (isImage) {
+      await Filesystem.writeFile({
+        path: `Pictures/MyApp/${fileName}`,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: Directory.ExternalStorage,
         recursive: true
       });
-
-      // Show system share sheet. This allows user to "Save Image" to gallery, "Save to Files" to local documents, or send via apps.
-      await Share.share({
-        title: title || fileName,
-        text: fileName,
-        url: writeResult.uri
+      alert(`Image saved in gallery`);
+    } else {
+      const writeResult = await Filesystem.writeFile({
+        path: `Download/${fileName}`,
+        data: base64Data,
+        directory: Directory.ExternalStorage,
+        recursive: true
       });
-      return;
-    } catch (err) {
-      console.error('Capacitor native saving failed, falling back to browser download:', err);
+      
+      if (window.confirm("Saved to Downloads. Share now?")) {
+        await Share.share({
+          title: title || fileName,
+          text: fileName,
+          url: writeResult.uri
+        });
+      }
     }
+    return;
+  } else {
+    // Web Browser fallback
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
   }
-
-  // Web Browser fallback
-  const downloadUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(downloadUrl);
 }
 
 /**

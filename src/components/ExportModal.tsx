@@ -1,4 +1,5 @@
-import { Settings, X, Share2, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, X, Share2, Download, Eye, EyeOff } from 'lucide-react';
 import { useExportModal } from './ExportModalHook';
 
 interface ExportModalProps {
@@ -30,6 +31,16 @@ export function ExportModal({ isOpen, onClose, onExport, defaultTitle, disabledO
     setQuality
   } = useExportModal({ defaultTitle });
 
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(defaultTitle);
+      setPassword('');
+      setShowPassword(false);
+    }
+  }, [isOpen, defaultTitle, setTitle, setPassword]);
+
   if (!isOpen) return null;
 
   return (
@@ -47,7 +58,16 @@ export function ExportModal({ isOpen, onClose, onExport, defaultTitle, disabledO
 
         <div className="flex flex-col gap-1">
             <label className="text-[var(--text-secondary)] text-[10px] uppercase font-bold">PASSWORD (OPTIONAL)</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Set password..." className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-2 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--primary)]" />
+            <div className="relative w-full">
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Set password..." className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-2 pr-10 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--primary)]" />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)} 
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
         </div>
 
         <div className="flex flex-col gap-1.5">

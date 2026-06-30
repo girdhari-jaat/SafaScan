@@ -69,7 +69,6 @@ export default function App() {
   const [isStatsModalOpen, setIsStatsModalOpen] = React.useState(false);
   const [logTrigger, setLogTrigger] = React.useState(0);
   const logContainerRef = React.useRef<HTMLDivElement>(null);
-  const [isConfirmingExit, setIsConfirmingExit] = React.useState(false);
   const [showSplash, setShowSplash] = React.useState(true);
   const [showExitPrompt, setShowExitPrompt] = React.useState(false);
   const lastBackButtonPressRef = React.useRef(0);
@@ -246,7 +245,6 @@ export default function App() {
     handleExportConfirmed,
     activeDoc,
     triggerToast,
-    hasUnsavedChanges,
   } = useAppHook();
 
   const handleExitAttempt = React.useCallback(async () => {
@@ -276,25 +274,13 @@ export default function App() {
     }
   }, [triggerToast]);
 
-  const handleGlobalBackPress = React.useCallback(() => {
-    if (hasUnsavedChanges && !isConfirmingExit) {
-      setIsConfirmingExit(true);
-      triggerToast("Press back again to exit");
-      setTimeout(() => setIsConfirmingExit(false), 3000);
-      return false;
-    }
-    return true;
-  }, [hasUnsavedChanges, isConfirmingExit, triggerToast]);
-
   const handleGlobalBack = React.useCallback(() => {
-    if (handleGlobalBackPress()) {
-      if (currentView === "home" || currentView === "library") {
-        handleExitAttempt();
-      } else {
-        handleAndroidBackButton();
-      }
+    if (currentView === "home" || currentView === "library") {
+      handleExitAttempt();
+    } else {
+      handleAndroidBackButton();
     }
-  }, [handleGlobalBackPress, currentView, handleExitAttempt, handleAndroidBackButton]);
+  }, [currentView, handleExitAttempt, handleAndroidBackButton]);
 
   React.useEffect(() => {
     let listenerPromise: Promise<any> | null = null;
@@ -716,7 +702,7 @@ export default function App() {
         {/* Centered Exit Prompt Overlay */}
         {showExitPrompt && (
           <div className="absolute inset-0 flex items-center justify-center z-[1000] bg-black/10 backdrop-blur-[2px] pointer-events-none animate-in fade-in duration-200">
-            <div className="bg-zinc-900/95 border border-zinc-800 text-zinc-100 font-black px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-2.5 max-w-[240px] text-center pointer-events-auto">
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] font-black px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-2.5 max-w-[240px] text-center pointer-events-auto">
               <ShieldCheck className="w-8 h-8 text-[var(--primary)] animate-pulse" />
               <span className="text-[11px] uppercase tracking-widest font-sans leading-snug">
                 Press again to exit
