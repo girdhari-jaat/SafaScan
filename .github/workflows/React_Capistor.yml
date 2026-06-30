@@ -20,6 +20,7 @@ jobs:
       - name: Install Web Dependencies
         run: |
           npm install --legacy-peer-deps
+          npm install @capacitor-community/media
 
       - name: Build React Web App
         run: |
@@ -35,7 +36,7 @@ jobs:
         run: |
           # Temporarily rename existing native android folder to prevent naming conflict with Capacitor's android platform
           if [ -d "android" ]; then
-            mv android android-native
+            mv android-native
           fi
 
           # Install Capacitor core, CLI, and android platform libraries
@@ -83,9 +84,6 @@ jobs:
         with:
           gradle-version: "8.5"
           build-root-directory: android
-
-      - name: Install Dependencies
-        run: npm install @capacitor-community/media
 
       - name: Sync Capacitor Android
         run: npx cap sync android
