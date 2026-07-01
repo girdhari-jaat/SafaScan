@@ -49,17 +49,19 @@ jobs:
           # Add android platform to Capacitor
           npx cap add android
 
-          # Inject Camera and Flashlight permissions into AndroidManifest.xml
+          # Inject Camera, Flashlight and Storage permissions into AndroidManifest.xml
           node -e "
           const fs = require('fs');
           const path = 'android/app/src/main/AndroidManifest.xml';
           if (fs.existsSync(path)) {
             let content = fs.readFileSync(path, 'utf8');
             if (!content.includes('android.permission.CAMERA')) {
-              const permissions = '    <uses-permission android:name=\"android.permission.INTERNET\" />\n    <uses-permission android:name=\"android.permission.CAMERA\" />\n    <uses-permission android:name=\"android.permission.FLASHLIGHT\" />\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\" />\n    <uses-feature android:name=\"android.hardware.camera.autofocus\" android:required=\"false\" />\n    <uses-feature android:name=\"android.hardware.camera.flash\" android:required=\"false\" />';
+              const permissions = '    <uses-permission android:name=\"android.permission.INTERNET\" />\n    <uses-permission android:name=\"android.permission.CAMERA\" />\n    <uses-permission android:name=\"android.permission.FLASHLIGHT\" />\n    <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" />\n    <uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"28\" />\n    <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />\n    <uses-feature android:name=\"android.hardware.camera\" android:required=\"false\" />\n    <uses-feature android:name=\"android.hardware.camera.autofocus\" android:required=\"false\" />\n    <uses-feature android:name=\"android.hardware.camera.flash\" android:required=\"false\" />';
               content = content.replace(\"<application\", permissions + \"\n    <application\");
+              // Also enable legacy storage for better compatibility on some Android 10/11 devices
+              content = content.replace('<application', '<application android:requestLegacyExternalStorage=\"true\"');
               fs.writeFileSync(path, content, 'utf8');
-              console.log('Successfully injected Camera permissions into AndroidManifest.xml!');
+              console.log('Successfully injected Camera and Storage permissions into AndroidManifest.xml!');
             }
           } else {
             console.error('AndroidManifest.xml not found!');

@@ -196,21 +196,31 @@ export async function saveOrShareBlob(
 
     if (isImage) {
       const { Media } = await import("@capacitor-community/media");
+      
+      // Save temporary file in Cache to move it to Gallery
+      const tempPath = `temp_${fileName}`;
       const writeResult = await Filesystem.writeFile({
-        path: `SafeScan/${fileName}`,
+        path: tempPath,
         data: base64Data,
-        directory: Directory.External,
-        recursive: true,
+        directory: Directory.Cache,
       });
 
       try {
-        const { albums } = await Media.getAlbums();
-        const album = albums.find((a) => a.name === "SafeScan");
+        // Ensure album exists or create it
+        let { albums } = await Media.getAlbums();
+        let album = albums.find((a) => a.name === "SafeScan");
+        
+        if (!album) {
+          await Media.createAlbum({ name: "SafeScan" });
+          // Refresh list
+          const updated = await Media.getAlbums();
+          album = updated.albums.find((a) => a.name === "SafeScan");
+        }
 
         await Media.savePhoto({
           path: writeResult.uri,
           albumIdentifier: album?.identifier,
-          fileName: fileName.replace(/\.[^/.]+$/, ""), // Remove extension for fileName prop
+          fileName: fileName.replace(/\.[^/.]+$/, ""),
         });
 
         await Toast.show({
@@ -218,35 +228,66 @@ export async function saveOrShareBlob(
           duration: "short",
           position: "bottom",
         });
+
+        if (!forceSaveDirectly) {
+          await Share.share({
+            title: fileName,
+            text: "Scanned Image",
+            files: [writeResult.uri],
+          });
+        }
+
+        // Clean up temp file AFTER sharing
+        await Filesystem.deleteFile({
+          path: tempPath,
+          directory: Directory.Cache,
+        }).catch(() => {});
+
+        return; // Exit here as we've handled the image flow
       } catch (err) {
         console.error("Media save error:", err);
-        // Fallback for when album creation/access fails but file is already written
+        // Fallback: Save to External if Gallery fails
+        await Filesystem.writeFile({
+          path: `SafeScan/${fileName}`,
+          data: base64Data,
+          directory: Directory.External,
+          recursive: true,
+        });
+
         await Toast.show({
           text: `Image saved in SafeScan folder`,
           duration: "short",
           position: "bottom",
         });
-      }
 
-      if (!forceSaveDirectly) {
-        await Share.share({
-          title: fileName,
-          text: "Scanned Image",
-          files: [writeResult.uri],
-        });
+        if (!forceSaveDirectly) {
+          const externalWrite = await Filesystem.getUri({
+            path: `SafeScan/${fileName}`,
+            directory: Directory.External,
+          });
+          await Share.share({
+            title: fileName,
+            text: "Scanned Image",
+            files: [externalWrite.uri],
+          });
+        }
+        return;
       }
-      return;
     }
+
+    const targetDirectory = forceSaveDirectly ? Directory.Documents : Directory.External;
 
     const writeResult = await Filesystem.writeFile({
       path: `SafeScan/${fileName}`,
       data: base64Data,
-      directory: Directory.External,
+      directory: targetDirectory,
       recursive: true,
     });
 
     await Toast.show({
-      text: `PDF saved to SafeScan folder`,
+      text: forceSaveDirectly 
+        ? `PDF saved to Documents/SafeScan` 
+        : `PDF saved to SafeScan folder`,
       duration: "short",
       position: "bottom",
     });
