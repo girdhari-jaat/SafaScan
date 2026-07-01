@@ -14,7 +14,6 @@ export interface PDFExportOptions {
 /**
  * Downloads a multi-page PDF generated fully client-side using Web Worker background thread
  */
-
 export async function exportDocumentToPDF(
   pages: ScanPage[],
   options: PDFExportOptions,
@@ -30,12 +29,12 @@ export async function exportDocumentToPDF(
   const pagesData: { blob: Blob; page: ScanPage }[] = [];
 
   const savedHdMode =
-    typeof window !== "undefined" ? localStorage.getItem("hdMode") : "Fast";
+    typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
   const hdModeSuffix =
     savedHdMode === "High"
-      ? "_High"
+     ? "_High"
       : savedHdMode === "Standard"
-        ? "_Standard"
+       ? "_Standard"
         : "_Fast";
 
   for (let i = 0; i < total; i++) {
@@ -51,7 +50,7 @@ export async function exportDocumentToPDF(
       continue;
     }
     const pageWithSourceType = {
-      ...page,
+     ...page,
       sourceType: ((page as any).sourceType || "paper") + hdModeSuffix,
     };
     pagesData.push({ blob, page: pageWithSourceType as any });
@@ -75,14 +74,14 @@ export async function generatePDFFromCards(
 ): Promise<void> {
   try {
     const isIdCard = mode === "idcard";
-    const iterations = isIdCard ? 8 : cards.length;
+    const iterations = isIdCard? 8 : cards.length;
     const cardsData: ({ blob: Blob; card: any } | null)[] = new Array(
       iterations,
     ).fill(null);
     const loadedBlobs = new Map<string, Blob>();
 
     for (let i = 0; i < iterations; i++) {
-      const sourceIndex = isIdCard ? i % cards.length : i;
+      const sourceIndex = isIdCard? i % cards.length : i;
       const card = cards[sourceIndex];
       if (!card) continue;
 
@@ -105,18 +104,18 @@ export async function generatePDFFromCards(
       };
 
       const savedHdMode =
-        typeof window !== "undefined" ? localStorage.getItem("hdMode") : "Fast";
+        typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
       const hdModeSuffix =
         savedHdMode === "High"
-          ? "_High"
+         ? "_High"
           : savedHdMode === "Standard"
-            ? "_Standard"
+           ? "_Standard"
             : "_Fast";
 
       const finalCard = {
         corners: meta.cropPoints || meta.corners || card.corners,
         rotation:
-          typeof meta.rotate === "number" ? meta.rotate : card.rotation || 0,
+          typeof meta.rotate === "number"? meta.rotate : card.rotation || 0,
         filter: meta.filter || card.filter || "original",
         adjustments: card.adjustments || {
           brightness: 0,
@@ -127,13 +126,13 @@ export async function generatePDFFromCards(
           temperature: 0,
         },
         originalIndex: sourceIndex,
-        sourceType: (mode === "idcard" ? "idcard" : "grid") + hdModeSuffix,
+        sourceType: (mode === "idcard"? "idcard" : "grid") + hdModeSuffix,
       };
 
       cardsData[i] = { blob, card: finalCard };
     }
 
-    if (cardsData.filter((c) => !!c).length === 0) {
+    if (cardsData.filter((c) =>!!c).length === 0) {
       throw new Error("No valid cards captured to generate PDF");
     }
 
@@ -174,6 +173,19 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /**
+ * Ensures Android 13+ media permission is granted before saving to Gallery
+ */
+async function ensureMediaPermissions(): Promise<boolean> {
+  const { Media } = await import("@capacitor-community/media");
+  try {
+    const { photos } = await Media.requestPermissions();
+    return photos === "granted" || photos === "limited";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Universal file saver/sharer that works in both standard web browsers and Capacitor-wrapped mobile apps (APKs).
  */
 export async function saveOrShareBlob(
@@ -196,8 +208,11 @@ export async function saveOrShareBlob(
 
     if (isImage) {
       const { Media } = await import("@capacitor-community/media");
-      
-      // Save temporary file in Cache to move it to Gallery
+
+      // 1. Request permission for Android 13+
+      const hasPermission = await ensureMediaPermissions();
+
+      // 2. Save temporary file in Cache to move it to Gallery
       const tempPath = `temp_${fileName}`;
       const writeResult = await Filesystem.writeFile({
         path: tempPath,
@@ -206,28 +221,32 @@ export async function saveOrShareBlob(
       });
 
       try {
-        // Ensure album exists or create it
-        let { albums } = await Media.getAlbums();
-        let album = albums.find((a) => a.name === "SafeScan");
-        
-        if (!album) {
-          await Media.createAlbum({ name: "SafeScan" });
-          // Refresh list
-          const updated = await Media.getAlbums();
-          album = updated.albums.find((a) => a.name === "SafeScan");
+        if (hasPermission) {
+          // 3. Ensure album exists or create it in DCIM
+          let { albums } = await Media.getAlbums();
+          let album = albums.find((a) => a.name === "SafeScan");
+
+          if (!album) {
+            await Media.createAlbum({ name: "SafeScan" });
+            // Refresh list
+            const updated = await Media.getAlbums();
+            album = updated.albums.find((a) => a.name === "SafeScan");
+          }
+
+          await Media.savePhoto({
+            path: writeResult.uri,
+            albumIdentifier: album?.identifier,
+            fileName: fileName.replace(/\.[^/.]+$/, ""),
+          });
+
+          await Toast.show({
+            text: `Image saved in Gallery (DCIM/SafeScan)`,
+            duration: "short",
+            position: "bottom",
+          });
+        } else {
+          throw new Error("Media permission denied");
         }
-
-        await Media.savePhoto({
-          path: writeResult.uri,
-          albumIdentifier: album?.identifier,
-          fileName: fileName.replace(/\.[^/.]+$/, ""),
-        });
-
-        await Toast.show({
-          text: `Image saved in Gallery (DCIM/SafeScan)`,
-          duration: "short",
-          position: "bottom",
-        });
 
         if (!forceSaveDirectly) {
           await Share.share({
@@ -237,16 +256,13 @@ export async function saveOrShareBlob(
           });
         }
 
-        // Clean up temp file AFTER sharing
-        await Filesystem.deleteFile({
-          path: tempPath,
-          directory: Directory.Cache,
-        }).catch(() => {});
+        // 4. IMPORTANT: Temp file is NOT deleted here.
+        // Android Cache folder is auto-cleaned by OS. Deleting here causes Share crash.
 
         return; // Exit here as we've handled the image flow
       } catch (err) {
-        console.error("Media save error:", err);
-        // Fallback: Save to External if Gallery fails
+        console.error("Media save error, falling back to External:", err);
+        // Fallback: Save to External if Gallery fails or no permission
         await Filesystem.writeFile({
           path: `SafeScan/${fileName}`,
           data: base64Data,
@@ -255,7 +271,7 @@ export async function saveOrShareBlob(
         });
 
         await Toast.show({
-          text: `Image saved in SafeScan folder`,
+          text: `Image saved in App folder`,
           duration: "short",
           position: "bottom",
         });
@@ -275,7 +291,9 @@ export async function saveOrShareBlob(
       }
     }
 
-    const targetDirectory = forceSaveDirectly ? Directory.Documents : Directory.External;
+    // 5. PDF Logic: Always use Directory.External for Android 10+ compatibility.
+    // Directory.Documents requires MANAGE_EXTERNAL_STORAGE on Android 10.
+    const targetDirectory = Directory.External;
 
     const writeResult = await Filesystem.writeFile({
       path: `SafeScan/${fileName}`,
@@ -285,9 +303,7 @@ export async function saveOrShareBlob(
     });
 
     await Toast.show({
-      text: forceSaveDirectly 
-        ? `PDF saved to Documents/SafeScan` 
-        : `PDF saved to SafeScan folder`,
+      text: `PDF saved to SafeScan folder`,
       duration: "short",
       position: "bottom",
     });
@@ -323,7 +339,7 @@ export async function shareOrDownloadFile(
   title?: string,
   forceDownload: boolean = false,
 ): Promise<void> {
-  // Normalize fileName to end with .pdf if not yet present
+  // Normalize fileName to end with.pdf if not yet present
   let normalizedName = fileName.trim() || "Scanned_Doc";
   if (!normalizedName.toLowerCase().endsWith(".pdf")) {
     normalizedName += ".pdf";
@@ -333,7 +349,7 @@ export async function shareOrDownloadFile(
 
   // Native Web Share API integration (perfect for Android APK wrapper context)
   if (
-    !forceDownload &&
+   !forceDownload &&
     navigator.share &&
     navigator.canShare &&
     navigator.canShare({ files: [file] })
