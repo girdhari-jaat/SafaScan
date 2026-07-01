@@ -30,12 +30,12 @@ export async function exportDocumentToPDF(
   const pagesData: { blob: Blob; page: ScanPage }[] = [];
 
   const savedHdMode =
-    typeof window !== "undefined" ? localStorage.getItem("hdMode") : "Fast";
+    typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
   const hdModeSuffix =
     savedHdMode === "High"
-      ? "_High"
+     ? "_High"
       : savedHdMode === "Standard"
-        ? "_Standard"
+       ? "_Standard"
         : "_Fast";
 
   for (let i = 0; i < total; i++) {
@@ -51,7 +51,7 @@ export async function exportDocumentToPDF(
       continue;
     }
     const pageWithSourceType = {
-      ...page,
+     ...page,
       sourceType: ((page as any).sourceType || "paper") + hdModeSuffix,
     };
     pagesData.push({ blob, page: pageWithSourceType as any });
@@ -75,14 +75,14 @@ export async function generatePDFFromCards(
 ): Promise<void> {
   try {
     const isIdCard = mode === "idcard";
-    const iterations = isIdCard ? 8 : cards.length;
+    const iterations = isIdCard? 8 : cards.length;
     const cardsData: ({ blob: Blob; card: any } | null)[] = new Array(
       iterations,
     ).fill(null);
     const loadedBlobs = new Map<string, Blob>();
 
     for (let i = 0; i < iterations; i++) {
-      const sourceIndex = isIdCard ? i % cards.length : i;
+      const sourceIndex = isIdCard? i % cards.length : i;
       const card = cards[sourceIndex];
       if (!card) continue;
 
@@ -105,35 +105,34 @@ export async function generatePDFFromCards(
       };
 
       const savedHdMode =
-        typeof window !== "undefined" ? localStorage.getItem("hdMode") : "Fast";
+        typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
       const hdModeSuffix =
         savedHdMode === "High"
-          ? "_High"
+         ? "_High"
           : savedHdMode === "Standard"
-            ? "_Standard"
+           ? "_Standard"
             : "_Fast";
 
       const finalCard = {
         corners: meta.cropPoints || meta.corners || card.corners,
         rotation:
-          typeof meta.rotate === "number" ? meta.rotate : card.rotation || 0,
+          typeof meta.rotate === "number"? meta.rotate : card.rotation || 0,
         filter: meta.filter || card.filter || "original",
         adjustments: card.adjustments || {
           brightness: 0,
           contrast: 0,
           saturation: 0,
-          sharpness: 0,
           shadows: 0,
           temperature: 0,
         },
         originalIndex: sourceIndex,
-        sourceType: (mode === "idcard" ? "idcard" : "grid") + hdModeSuffix,
+        sourceType: (mode === "idcard"? "idcard" : "grid") + hdModeSuffix,
       };
 
       cardsData[i] = { blob, card: finalCard };
     }
 
-    if (cardsData.filter((c) => !!c).length === 0) {
+    if (cardsData.filter((c) =>!!c).length === 0) {
       throw new Error("No valid cards captured to generate PDF");
     }
 
@@ -188,93 +187,39 @@ export async function saveOrShareBlob(
     const { Filesystem, Directory } = await import("@capacitor/filesystem");
     const { Share } = await import("@capacitor/share");
     const { Toast } = await import("@capacitor/toast");
-    const base64Data = await blobToBase64(blob);
+    const { FilePicker } = await import("@capawesome/capacitor-file-picker");
 
-    const isImage =
-      fileName.toLowerCase().endsWith(".jpg") ||
-      fileName.toLowerCase().endsWith(".png");
+    // SAF: Let Android decide where to save
+    try {
+      const base64Data = await blobToBase64(blob);
+      const mimeType = blob.type || (fileName.endsWith('.pdf')? 'application/pdf' : 'image/jpeg');
 
-    if (isImage) {
-      // Save directly to the Android media directory (WhatsApp-style scoped storage)
-      const mediaPath = `Android/media/com.safescan.app/SafeScan/${fileName}`;
-      try {
-        const writeResult = await Filesystem.writeFile({
-          path: mediaPath,
-          data: base64Data,
-          directory: Directory.External,
-          recursive: true,
-        });
+      const result = await FilePicker.saveFile({
+        data: base64Data,
+        name: fileName,
+        mimeType: mimeType,
+      });
 
+      if (result.path) {
         await Toast.show({
-          text: `Image saved to Android/media/com.safescan.app/SafeScan`,
+          text: `Saved`,
           duration: "short",
           position: "bottom",
         });
-
-        return; // Exit here as we've handled the image flow
-      } catch (err) {
-        console.error("Error saving image to Android media folder:", err);
-        // Fallback: Save to standard external folder
-        const fallbackPath = `SafeScan/${fileName}`;
-        await Filesystem.writeFile({
-          path: fallbackPath,
-          data: base64Data,
-          directory: Directory.External,
-          recursive: true,
-        });
-
-        await Toast.show({
-          text: `Image saved in SafeScan folder`,
-          duration: "short",
-          position: "bottom",
-        });
-
-        return;
       }
-    }
-
-    if (forceSaveDirectly) {
-      // 2nd Method: Trigger a hidden HTML browser download in Capacitor.
-      // When the app is running inside the Capacitor wrapper, the webview will generate a standard browser download request.
-      // Android OS handles this and routes it to the public Download/ directory.
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
-
+      return;
+    } catch (err: any) {
+      if (err.message?.includes('cancelled') || err.message?.includes('canceled')) {
+        return; // User cancelled folder picker
+      }
+      console.error("SAF save failed:", err);
       await Toast.show({
-        text: `Downloading ${fileName}... Check your notifications or downloads.`,
+        text: `Save cancelled or failed`,
         duration: "short",
         position: "bottom",
       });
       return;
     }
-
-    const targetDirectory = Directory.External;
-
-    const writeResult = await Filesystem.writeFile({
-      path: `SafeScan/${fileName}`,
-      data: base64Data,
-      directory: targetDirectory,
-      recursive: true,
-    });
-
-    await Toast.show({
-      text: `PDF saved to SafeScan folder`,
-      duration: "short",
-      position: "bottom",
-    });
-
-    await Share.share({
-      title: fileName,
-      text: "Scanned Document",
-      files: [writeResult.uri],
-    });
-    return;
   } else {
     // Web Browser fallback
     const downloadUrl = URL.createObjectURL(blob);
@@ -298,7 +243,7 @@ export async function shareOrDownloadFile(
   title?: string,
   forceDownload: boolean = false,
 ): Promise<void> {
-  // Normalize fileName to end with .pdf if not yet present
+  // Normalize fileName to end with.pdf if not yet present
   let normalizedName = fileName.trim() || "Scanned_Doc";
   if (!normalizedName.toLowerCase().endsWith(".pdf")) {
     normalizedName += ".pdf";
@@ -308,7 +253,7 @@ export async function shareOrDownloadFile(
 
   // Native Web Share API integration (perfect for Android APK wrapper context)
   if (
-    !forceDownload &&
+   !forceDownload &&
     navigator.share &&
     navigator.canShare &&
     navigator.canShare({ files: [file] })
@@ -333,5 +278,5 @@ export async function shareOrDownloadFile(
   }
 
   // Fallback to standard universal downloader/sharer
-  await saveOrShareBlob(blob, normalizedName, title, forceDownload);
+  await saveOrDownloadFile(blob, normalizedName, title, forceDownload);
 }
