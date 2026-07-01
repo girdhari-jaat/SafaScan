@@ -38,7 +38,7 @@ jobs:
           # Temporarily rename existing native android folder to prevent naming conflict with Capacitor's android platform
           if [ -d "android" ]; then
             echo "Moving existing native android folder to android-native"
-            mv android-native
+            mv android android-native
           fi
 
           # Initialize Capacitor configuration only if it doesn't exist
@@ -68,6 +68,24 @@ jobs:
           }
           "
 
+          # Enable Minification (Proguard) and Fallback Signing configuration in android/app/build.gradle
+          node -e "
+          const fs = require('fs');
+          const path = 'android/app/build.gradle';
+          if (fs.existsSync(path)) {
+            let content = fs.readFileSync(path, 'utf8');
+            if (content.includes('minifyEnabled false')) {
+              content = content.replace('minifyEnabled false', 'minifyEnabled true\n            signingConfig signingConfigs.debug');
+              fs.writeFileSync(path, content, 'utf8');
+              console.log('Successfully configured build.gradle with minifyEnabled true and debug signing fallback!');
+            } else {
+              console.log('Warning: minifyEnabled false not found or already modified in build.gradle');
+            }
+          } else {
+            console.error('build.gradle not found at ' + path);
+          }
+          "
+
           # Add Kotlin resolution strategy to resolve duplicate class issues
           if [ -f "android/build.gradle" ]; then
             cat << 'EOF' >> android/build.gradle
@@ -80,16 +98,6 @@ jobs:
           }
           EOF
           fi
-
-          # Set release buildType to use debug keystore + enable minify for smaller/faster APK
-          node -e "
-          const fs = require('fs');
-          const path = 'android/app/build.gradle';
-          let content = fs.readFileSync(path, 'utf8');
-          content = content.replace(/buildTypes \{/, `buildTypes {\n        release {\n            minifyEnabled true\n            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\n            signingConfig signingConfigs.debug\n        }`);
-          fs.writeFileSync(path, content, 'utf8');
-          console.log('Patched android/app/build.gradle for release build');
-          "
 
           # Sync assets and web build files to the native Android platform project
           npx cap sync android
