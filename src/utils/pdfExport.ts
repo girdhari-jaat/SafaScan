@@ -33,9 +33,9 @@ export async function exportDocumentToPDF(
     typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
   const hdModeSuffix =
     savedHdMode === "High"
-   ? "_High"
+     ? "_High"
       : savedHdMode === "Standard"
-     ? "_Standard"
+       ? "_Standard"
         : "_Fast";
 
   for (let i = 0; i < total; i++) {
@@ -51,7 +51,7 @@ export async function exportDocumentToPDF(
       continue;
     }
     const pageWithSourceType = {
-   ...page,
+     ...page,
       sourceType: ((page as any).sourceType || "paper") + hdModeSuffix,
     };
     pagesData.push({ blob, page: pageWithSourceType as any });
@@ -108,9 +108,9 @@ export async function generatePDFFromCards(
         typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
       const hdModeSuffix =
         savedHdMode === "High"
-       ? "_High"
+         ? "_High"
           : savedHdMode === "Standard"
-         ? "_Standard"
+           ? "_Standard"
             : "_Fast";
 
       const finalCard = {
@@ -188,25 +188,28 @@ export async function saveOrShareBlob(
     const { Filesystem, Directory } = await import("@capacitor/filesystem");
     const { Share } = await import("@capacitor/share");
     const { Toast } = await import("@capacitor/toast");
-    const { FilePicker } = await import("@capawesome/capacitor-file-picker"); // +1
+    const { FilePicker } = await import("@capawesome/capacitor-file-picker");
     const base64Data = await blobToBase64(blob);
 
     const isImage =
       fileName.toLowerCase().endsWith(".jpg") ||
       fileName.toLowerCase().endsWith(".png");
 
-    // +14 lines: Sirf Image ya ForceDownload pe Android se poochega
+    // Sirf Image ya ForceDownload pe Android se folder poochega
     if (isImage || forceSaveDirectly) {
       try {
         const mimeType = blob.type || (isImage? 'image/jpeg' : 'application/pdf');
         const result = await FilePicker.saveFile({ data: base64Data, name: fileName, mimeType });
-        if (result.path) { await Toast.show({ text: `Saved`, duration: "short", position: "bottom" }); }
-        return; // Save ho gaya to Share pe nahi jayega
+        if (result.path) {
+          await Toast.show({ text: `Saved`, duration: "short", position: "bottom" });
+        }
+        return; // Save ho gaya to neeche nahi jayega
       } catch (err: any) {
-        if (err.message?.includes('cancelled') || err.message?.includes('canceled')) { return; }
+        if (err.message?.includes('cancelled') || err.message?.includes('canceled')) {
+          return;
+        }
       }
     }
-    // +14 lines khatam
 
     if (isImage) {
       // Save directly to the Android media directory (WhatsApp-style scoped storage)
@@ -249,8 +252,6 @@ export async function saveOrShareBlob(
 
     if (forceSaveDirectly) {
       // 2nd Method: Trigger a hidden HTML browser download in Capacitor.
-      // When the app is running inside the Capacitor wrapper, the webview will generate a standard browser download request.
-      // Android OS handles this and routes it to the public Download/ directory.
       const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
@@ -283,7 +284,7 @@ export async function saveOrShareBlob(
       position: "bottom",
     });
 
-    await Share.share({ // <- Share wala purana code waisa ka waisa
+    await Share.share({
       title: fileName,
       text: "Scanned Document",
       files: [writeResult.uri],
@@ -318,18 +319,18 @@ export async function shareOrDownloadFile(
     normalizedName += ".pdf";
   }
 
-  const file = new File(, normalizedName, { type: "application/pdf" });
+  const file = new File([blob], normalizedName, { type: "application/pdf" });
 
-  // Native Web Share API integration (perfect for Android APK wrapper context)
+  // Native Web Share API integration
   if (
- !forceDownload &&
+   !forceDownload &&
     navigator.share &&
     navigator.canShare &&
-    navigator.canShare({ files: })
+    navigator.canShare({ files: [file] })
   ) {
     try {
       await navigator.share({
-        files:,
+        files: [file],
         title: title || normalizedName,
         text: "Scanned Document (PDF)",
       });
