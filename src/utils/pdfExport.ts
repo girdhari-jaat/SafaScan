@@ -333,6 +333,28 @@ export async function saveOrShareBlob(
     }
 
     if (forceSaveDirectly) {
+      // On Android, save directly to MediaStore.Downloads with MIME type application/pdf using custom Media.savePdf
+      if (Capacitor.getPlatform() === "android") {
+        try {
+          const { Media } = await import("@capacitor-community/media");
+          if (Media && typeof (Media as any).savePdf === "function") {
+            const dataUrl = `data:application/pdf;base64,${base64Data}`;
+            await (Media as any).savePdf({
+              path: dataUrl,
+              fileName: fileName,
+            });
+            await Toast.show({
+              text: `PDF saved to Downloads/SafeScan`,
+              duration: "short",
+              position: "bottom",
+            });
+            return;
+          }
+        } catch (savePdfErr) {
+          console.warn("Could not save PDF via MediaStore.savePdf, falling back to legacy storage:", savePdfErr);
+        }
+      }
+
       // Save directly to the Android media directory (WhatsApp-style scoped storage)
       const mediaPath = `Android/media/com.safescan.app/SafeScan/${fileName}`;
       try {
