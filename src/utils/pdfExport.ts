@@ -195,56 +195,317 @@ export async function saveOrShareBlob(
       fileName.toLowerCase().endsWith(".png");
 
     if (isImage) {
-      // Trigger a hidden HTML browser download in Capacitor so the Android webview download manager handles it naturally and lets the OS decide the path.
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
+      try {
+        // Step 1: Write image to a temporary cache file
+        const tempPath = `temp_${Date.now()}_${fileName}`;
+        const tempFile = await Filesystem.writeFile({
+          path: tempPath,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
 
-      await Toast.show({
-        text: `Saving image ${fileName}... Check your notifications or gallery/downloads.`,
-        duration: "short",
-        position: "bottom",
-      });
-      return; // Exit here as we've handled the image flow
+        // Step 2: Use the @capacitor-community/media plugin to save it to DCIM/SafeScan gallery
+        const { Media } = await import("@capacitor-community/media");
+        
+        let albumIdentifier: string | undefined;
+        try {
+          const albumsResult = await Media.getAlbums();
+          let targetAlbum = albumsResult.albums.find(
+            (a) => a.name.toLowerCase() === "safescan"
+          );
+
+          if (!targetAlbum) {
+            await Media.createAlbum({ name: "SafeScan" });
+            const updatedAlbums = await Media.getAlbums();
+            targetAlbum = updatedAlbums.albums.find(
+              (a) => a.name.toLowerCase() === "safescan"
+            );
+          }
+          
+          if (targetAlbum) {
+            albumIdentifier = targetAlbum.identifier;
+          }
+        } catch (albumErr) {
+          console.warn("Could not check/create album via getAlbums, will let savePhoto handle default or fallback:", albumErr);
+        }
+
+        const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+        await Media.savePhoto({
+          path: tempFile.uri,
+          albumIdentifier: albumIdentifier || "SafeScan",
+          fileName: fileNameWithoutExt,
+        });
+
+        // Clean up the temp cache file
+        try {
+          await Filesystem.deleteFile({
+            path: tempPath,
+            directory: Directory.Cache,
+          });
+        } catch (e) {
+          console.error("Error deleting temp file:", e);
+        }
+
+        await Toast.show({
+          text: `Image saved to Gallery in DCIM/SafeScan/`,
+          duration: "short",
+          position: "bottom",
+        });
+
+        return; // Exit here as we've handled the image flow
+      } catch (err) {
+        console.error("Error saving image via Media Plugin:", err);
+
+        // Fallback: Save directly to the Android media directory (WhatsApp-style scoped storage)
+        const mediaPath = `Android/media/com.safescan.app/SafeScan/${fileName}`;
+        try {
+          const writeResult = await Filesystem.writeFile({
+            path: mediaPath,
+            data: base64Data,
+            directory: Directory.External,
+            recursive: true,
+          });
+
+          // Trigger native media scan for instant gallery refresh
+          try {
+            const { Media } = await import("@capacitor-community/media");
+            if (Media && typeof (Media as any).scanFile === "function") {
+              await (Media as any).scanFile({ path: writeResult.uri });
+            }
+          } catch (scanErr) {
+            console.warn("Could not scan file:", scanErr);
+          }
+
+          await Toast.show({
+            text: `Image saved to Android/media/com.safescan.app/SafeScan`,
+            duration: "short",
+            position: "bottom",
+          });
+
+          return; // Exit here as we've handled the image flow
+        } catch (fallbackErr1) {
+          console.error("Error saving image to Android media folder:", fallbackErr1);
+          // Fallback 2: Save to standard external folder
+          try {
+            const writeResult = await Filesystem.writeFile({
+              path: `SafeScan/${fileName}`,
+              data: base64Data,
+              directory: Directory.External,
+              recursive: true,
+            });
+
+            // Trigger native media scan for instant gallery refresh
+            try {
+              const { Media } = await import("@capacitor-community/media");
+              if (Media && typeof (Media as any).scanFile === "function") {
+                await (Media as any).scanFile({ path: writeResult.uri });
+              }
+            } catch (scanErr) {
+              console.warn("Could not scan file:", scanErr);
+            }
+
+            await Toast.show({
+              text: `Image saved in SafeScan folder`,
+              duration: "short",
+              position: "bottom",
+            });
+          } catch (fallbackErr2) {
+            console.error("Error saving image to fallback folder:", fallbackErr2);
+            // Standard web fallback trigger
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+
+            await Toast.show({
+              text: `Saving image ${fileName}... Check your downloads.`,
+              duration: "short",
+              position: "bottom",
+            });
+          }
+          return;
+        }
+      }
     }
 
     if (forceSaveDirectly) {
-      // 2nd Method: Trigger a hidden HTML browser download in Capacitor.
-      // When the app is running inside the Capacitor wrapper, the webview will generate a standard browser download request.
-      // Android OS handles this and routes it to the public Download/ directory.
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
+      // 1. Try public Documents folder (Directory.Documents) - user visible and doesn't require permissions on Android 10+
+      try {
+        const writeResult = await Filesystem.writeFile({
+          path: `SafeScan/${fileName}`,
+          data: base64Data,
+          directory: Directory.Documents,
+          recursive: true,
+        });
 
-      await Toast.show({
-        text: `Downloading ${fileName}... Check your notifications or downloads.`,
-        duration: "short",
-        position: "bottom",
-      });
-      return;
+        // Trigger native media scan so Android registers the document in files and downloads instantly
+        try {
+          const { Media } = await import("@capacitor-community/media");
+          if (Media && typeof (Media as any).scanFile === "function") {
+            await (Media as any).scanFile({ path: writeResult.uri });
+          }
+        } catch (scanErr) {
+          console.warn("Could not scan file:", scanErr);
+        }
+
+        await Toast.show({
+          text: `PDF saved to Documents/SafeScan`,
+          duration: "short",
+          position: "bottom",
+        });
+
+        return;
+      } catch (docErr) {
+        console.warn("Could not save to Directory.Documents, trying Directory.External (media folder):", docErr);
+        
+        // 2. Fallback to Android media folder (scoped package storage)
+        const mediaPath = `Android/media/com.safescan.app/SafeScan/${fileName}`;
+        try {
+          const writeResult = await Filesystem.writeFile({
+            path: mediaPath,
+            data: base64Data,
+            directory: Directory.External,
+            recursive: true,
+          });
+
+          // Trigger native media scan
+          try {
+            const { Media } = await import("@capacitor-community/media");
+            if (Media && typeof (Media as any).scanFile === "function") {
+              await (Media as any).scanFile({ path: writeResult.uri });
+            }
+          } catch (scanErr) {
+            console.warn("Could not scan file:", scanErr);
+          }
+
+          await Toast.show({
+            text: `PDF saved to Android/media/com.safescan.app/SafeScan`,
+            duration: "short",
+            position: "bottom",
+          });
+
+          return;
+        } catch (err) {
+          console.error("Error saving PDF to Android media folder:", err);
+          // Fallback 3: Save to standard external folder
+          try {
+            const writeResult = await Filesystem.writeFile({
+              path: `SafeScan/${fileName}`,
+              data: base64Data,
+              directory: Directory.External,
+              recursive: true,
+            });
+
+            try {
+              const { Media } = await import("@capacitor-community/media");
+              if (Media && typeof (Media as any).scanFile === "function") {
+                await (Media as any).scanFile({ path: writeResult.uri });
+              }
+            } catch (scanErr) {
+              console.warn("Could not scan file:", scanErr);
+            }
+
+            await Toast.show({
+              text: `PDF saved in SafeScan folder`,
+              duration: "short",
+              position: "bottom",
+            });
+          } catch (fallbackErr) {
+            console.error("Error saving PDF to fallback folder:", fallbackErr);
+            // Fallback 4: Standard web fallback download
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+
+            await Toast.show({
+              text: `Saving PDF ${fileName}... Check your downloads.`,
+              duration: "short",
+              position: "bottom",
+            });
+          }
+          return;
+        }
+      }
     }
 
-    const targetDirectory = Directory.External;
+    // Standard saving & sharing flow
+    let writeResult;
+    let folderName = "Documents/SafeScan";
+    try {
+      // Try writing to public Documents folder first
+      writeResult = await Filesystem.writeFile({
+        path: `SafeScan/${fileName}`,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+    } catch (docErr) {
+      console.warn("Could not write to Directory.Documents for share, trying Directory.External:", docErr);
+      folderName = "SafeScan";
+      try {
+        writeResult = await Filesystem.writeFile({
+          path: `SafeScan/${fileName}`,
+          data: base64Data,
+          directory: Directory.External,
+          recursive: true,
+        });
+      } catch (extErr) {
+        console.error("Failed writing PDF to External directory too:", extErr);
+        // Fallback to media folder
+        folderName = "Android/media/com.safescan.app/SafeScan";
+        try {
+          writeResult = await Filesystem.writeFile({
+            path: `Android/media/com.safescan.app/SafeScan/${fileName}`,
+            data: base64Data,
+            directory: Directory.External,
+            recursive: true,
+          });
+        } catch (mediaErr) {
+          console.error("Failed all mobile writes, using web share fallback", mediaErr);
+          // Standard web share fallback
+          const file = new File([blob], fileName, { type: "application/pdf" });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: title || fileName,
+              text: "Scanned Document (PDF)",
+            });
+          } else {
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+          }
+          return;
+        }
+      }
+    }
 
-    const writeResult = await Filesystem.writeFile({
-      path: `SafeScan/${fileName}`,
-      data: base64Data,
-      directory: targetDirectory,
-      recursive: true,
-    });
+    // Trigger native media scan for instant gallery indexing so it appears in Documents lists
+    try {
+      const { Media } = await import("@capacitor-community/media");
+      if (Media && typeof (Media as any).scanFile === "function") {
+        await (Media as any).scanFile({ path: writeResult.uri });
+      }
+    } catch (scanErr) {
+      console.warn("Could not scan file:", scanErr);
+    }
 
     await Toast.show({
-      text: `PDF saved to SafeScan folder`,
+      text: `PDF saved to ${folderName}`,
       duration: "short",
       position: "bottom",
     });
