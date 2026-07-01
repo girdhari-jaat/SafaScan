@@ -33,9 +33,9 @@ export async function exportDocumentToPDF(
     typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
   const hdModeSuffix =
     savedHdMode === "High"
-     ? "_High"
+   ? "_High"
       : savedHdMode === "Standard"
-       ? "_Standard"
+     ? "_Standard"
         : "_Fast";
 
   for (let i = 0; i < total; i++) {
@@ -51,7 +51,7 @@ export async function exportDocumentToPDF(
       continue;
     }
     const pageWithSourceType = {
-     ...page,
+   ...page,
       sourceType: ((page as any).sourceType || "paper") + hdModeSuffix,
     };
     pagesData.push({ blob, page: pageWithSourceType as any });
@@ -108,9 +108,9 @@ export async function generatePDFFromCards(
         typeof window!== "undefined"? localStorage.getItem("hdMode") : "Fast";
       const hdModeSuffix =
         savedHdMode === "High"
-         ? "_High"
+       ? "_High"
           : savedHdMode === "Standard"
-           ? "_Standard"
+         ? "_Standard"
             : "_Fast";
 
       const finalCard = {
@@ -122,6 +122,7 @@ export async function generatePDFFromCards(
           brightness: 0,
           contrast: 0,
           saturation: 0,
+          sharpness: 0,
           shadows: 0,
           temperature: 0,
         },
@@ -187,39 +188,107 @@ export async function saveOrShareBlob(
     const { Filesystem, Directory } = await import("@capacitor/filesystem");
     const { Share } = await import("@capacitor/share");
     const { Toast } = await import("@capacitor/toast");
-    const { FilePicker } = await import("@capawesome/capacitor-file-picker");
+    const { FilePicker } = await import("@capawesome/capacitor-file-picker"); // +1
+    const base64Data = await blobToBase64(blob);
 
-    // SAF: Let Android decide where to save
-    try {
-      const base64Data = await blobToBase64(blob);
-      const mimeType = blob.type || (fileName.endsWith('.pdf')? 'application/pdf' : 'image/jpeg');
+    const isImage =
+      fileName.toLowerCase().endsWith(".jpg") ||
+      fileName.toLowerCase().endsWith(".png");
 
-      const result = await FilePicker.saveFile({
-        data: base64Data,
-        name: fileName,
-        mimeType: mimeType,
-      });
+    // +14 lines: Sirf Image ya ForceDownload pe Android se poochega
+    if (isImage || forceSaveDirectly) {
+      try {
+        const mimeType = blob.type || (isImage? 'image/jpeg' : 'application/pdf');
+        const result = await FilePicker.saveFile({ data: base64Data, name: fileName, mimeType });
+        if (result.path) { await Toast.show({ text: `Saved`, duration: "short", position: "bottom" }); }
+        return; // Save ho gaya to Share pe nahi jayega
+      } catch (err: any) {
+        if (err.message?.includes('cancelled') || err.message?.includes('canceled')) { return; }
+      }
+    }
+    // +14 lines khatam
 
-      if (result.path) {
+    if (isImage) {
+      // Save directly to the Android media directory (WhatsApp-style scoped storage)
+      const mediaPath = `Android/media/com.safescan.app/SafeScan/${fileName}`;
+      try {
+        const writeResult = await Filesystem.writeFile({
+          path: mediaPath,
+          data: base64Data,
+          directory: Directory.External,
+          recursive: true,
+        });
+
         await Toast.show({
-          text: `Saved`,
+          text: `Image saved to Android/media/com.safescan.app/SafeScan`,
           duration: "short",
           position: "bottom",
         });
+
+        return; // Exit here as we've handled the image flow
+      } catch (err) {
+        console.error("Error saving image to Android media folder:", err);
+        // Fallback: Save to standard external folder
+        const fallbackPath = `SafeScan/${fileName}`;
+        await Filesystem.writeFile({
+          path: fallbackPath,
+          data: base64Data,
+          directory: Directory.External,
+          recursive: true,
+        });
+
+        await Toast.show({
+          text: `Image saved in SafeScan folder`,
+          duration: "short",
+          position: "bottom",
+        });
+
+        return;
       }
-      return;
-    } catch (err: any) {
-      if (err.message?.includes('cancelled') || err.message?.includes('canceled')) {
-        return; // User cancelled folder picker
-      }
-      console.error("SAF save failed:", err);
+    }
+
+    if (forceSaveDirectly) {
+      // 2nd Method: Trigger a hidden HTML browser download in Capacitor.
+      // When the app is running inside the Capacitor wrapper, the webview will generate a standard browser download request.
+      // Android OS handles this and routes it to the public Download/ directory.
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
       await Toast.show({
-        text: `Save cancelled or failed`,
+        text: `Downloading ${fileName}... Check your notifications or downloads.`,
         duration: "short",
         position: "bottom",
       });
       return;
     }
+
+    const targetDirectory = Directory.External;
+
+    const writeResult = await Filesystem.writeFile({
+      path: `SafeScan/${fileName}`,
+      data: base64Data,
+      directory: targetDirectory,
+      recursive: true,
+    });
+
+    await Toast.show({
+      text: `PDF saved to SafeScan folder`,
+      duration: "short",
+      position: "bottom",
+    });
+
+    await Share.share({ // <- Share wala purana code waisa ka waisa
+      title: fileName,
+      text: "Scanned Document",
+      files: [writeResult.uri],
+    });
+    return;
   } else {
     // Web Browser fallback
     const downloadUrl = URL.createObjectURL(blob);
@@ -249,18 +318,18 @@ export async function shareOrDownloadFile(
     normalizedName += ".pdf";
   }
 
-  const file = new File([blob], normalizedName, { type: "application/pdf" });
+  const file = new File(, normalizedName, { type: "application/pdf" });
 
   // Native Web Share API integration (perfect for Android APK wrapper context)
   if (
-   !forceDownload &&
+ !forceDownload &&
     navigator.share &&
     navigator.canShare &&
-    navigator.canShare({ files: [file] })
+    navigator.canShare({ files: })
   ) {
     try {
       await navigator.share({
-        files: [file],
+        files:,
         title: title || normalizedName,
         text: "Scanned Document (PDF)",
       });
@@ -278,5 +347,5 @@ export async function shareOrDownloadFile(
   }
 
   // Fallback to standard universal downloader/sharer
-  await saveOrDownloadFile(blob, normalizedName, title, forceDownload);
+  await saveOrShareBlob(blob, normalizedName, title, forceDownload);
 }
