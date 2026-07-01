@@ -195,60 +195,29 @@ export async function saveOrShareBlob(
       fileName.toLowerCase().endsWith(".png");
 
     if (isImage) {
-      const { Media } = await import("@capacitor-community/media");
-      
-      // Save temporary file in Cache to move it to Gallery
-      const tempPath = `temp_${fileName}`;
-      const writeResult = await Filesystem.writeFile({
-        path: tempPath,
-        data: base64Data,
-        directory: Directory.Cache,
-      });
-
+      // Save directly to the Android media directory (WhatsApp-style scoped storage)
+      const mediaPath = `Android/media/com.safescan.app/SafeScan/${fileName}`;
       try {
-        // Ensure album exists or create it
-        let { albums } = await Media.getAlbums();
-        let album = albums.find((a) => a.name === "SafeScan");
-        
-        if (!album) {
-          await Media.createAlbum({ name: "SafeScan" });
-          // Refresh list
-          const updated = await Media.getAlbums();
-          album = updated.albums.find((a) => a.name === "SafeScan");
-        }
-
-        await Media.savePhoto({
-          path: writeResult.uri,
-          albumIdentifier: album?.identifier,
-          fileName: fileName.replace(/\.[^/.]+$/, ""),
+        const writeResult = await Filesystem.writeFile({
+          path: mediaPath,
+          data: base64Data,
+          directory: Directory.External,
+          recursive: true,
         });
 
         await Toast.show({
-          text: `Image saved in Gallery (DCIM/SafeScan)`,
+          text: `Image saved to Android/media/com.safescan.app/SafeScan`,
           duration: "short",
           position: "bottom",
         });
 
-        if (!forceSaveDirectly) {
-          await Share.share({
-            title: fileName,
-            text: "Scanned Image",
-            files: [writeResult.uri],
-          });
-        }
-
-        // Clean up temp file AFTER sharing
-        await Filesystem.deleteFile({
-          path: tempPath,
-          directory: Directory.Cache,
-        }).catch(() => {});
-
         return; // Exit here as we've handled the image flow
       } catch (err) {
-        console.error("Media save error:", err);
-        // Fallback: Save to External if Gallery fails
+        console.error("Error saving image to Android media folder:", err);
+        // Fallback: Save to standard external folder
+        const fallbackPath = `SafeScan/${fileName}`;
         await Filesystem.writeFile({
-          path: `SafeScan/${fileName}`,
+          path: fallbackPath,
           data: base64Data,
           directory: Directory.External,
           recursive: true,
@@ -260,22 +229,32 @@ export async function saveOrShareBlob(
           position: "bottom",
         });
 
-        if (!forceSaveDirectly) {
-          const externalWrite = await Filesystem.getUri({
-            path: `SafeScan/${fileName}`,
-            directory: Directory.External,
-          });
-          await Share.share({
-            title: fileName,
-            text: "Scanned Image",
-            files: [externalWrite.uri],
-          });
-        }
         return;
       }
     }
 
-    const targetDirectory = forceSaveDirectly ? Directory.Documents : Directory.External;
+    if (forceSaveDirectly) {
+      // 2nd Method: Trigger a hidden HTML browser download in Capacitor.
+      // When the app is running inside the Capacitor wrapper, the webview will generate a standard browser download request.
+      // Android OS handles this and routes it to the public Download/ directory.
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      await Toast.show({
+        text: `Downloading ${fileName}... Check your notifications or downloads.`,
+        duration: "short",
+        position: "bottom",
+      });
+      return;
+    }
+
+    const targetDirectory = Directory.External;
 
     const writeResult = await Filesystem.writeFile({
       path: `SafeScan/${fileName}`,
@@ -285,20 +264,16 @@ export async function saveOrShareBlob(
     });
 
     await Toast.show({
-      text: forceSaveDirectly 
-        ? `PDF saved to Documents/SafeScan` 
-        : `PDF saved to SafeScan folder`,
+      text: `PDF saved to SafeScan folder`,
       duration: "short",
       position: "bottom",
     });
 
-    if (!forceSaveDirectly) {
-      await Share.share({
-        title: fileName,
-        text: "Scanned Document",
-        files: [writeResult.uri],
-      });
-    }
+    await Share.share({
+      title: fileName,
+      text: "Scanned Document",
+      files: [writeResult.uri],
+    });
     return;
   } else {
     // Web Browser fallback
