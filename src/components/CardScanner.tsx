@@ -267,6 +267,7 @@ export function CardScanner({
                     card.filter,
                     card.adjustments,
                     "idcard_preview",
+                    card.imageId,
                   );
                   if (active) {
                     const u = URL.createObjectURL(processedBlob);

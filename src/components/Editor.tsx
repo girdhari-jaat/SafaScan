@@ -161,7 +161,8 @@ const SingleVerticalPageCard = React.memo(function SingleVerticalPageCard({
           page.rotation,
           page.filter,
           page.adjustments,
-          'export'
+          'export',
+          page.originalImageId
         );
         
         if (processedBlob) {

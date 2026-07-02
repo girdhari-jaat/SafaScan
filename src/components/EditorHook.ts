@@ -121,7 +121,7 @@ export function useEditorHook({
           const blob = await getImageBlob(p.originalImageId);
           if (blob) {
              const bitmap = await createImageBitmap(blob);
-             const procBlob = await processFinalImageOffThread(bitmap, p.corners, p.rotation, p.filter, p.adjustments, 'preview');
+             const procBlob = await processFinalImageOffThread(bitmap, p.corners, p.rotation, p.filter, p.adjustments, 'preview', p.originalImageId);
              
              // Save to display cache
              await saveDisplayCacheBlob(hash, procBlob);

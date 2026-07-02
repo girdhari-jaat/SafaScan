@@ -251,7 +251,8 @@ export function useCardScannerHook({ mode, initialPages: _initialPages, onAutosa
 
                  const warped = await warpPreview(pBitmap, {
                    ...pageMeta,
-                   scanMode: mode === 'idcard' ? 'card' : 'grid'
+                   scanMode: mode === 'idcard' ? 'card' : 'grid',
+                    imageId: item.imageId
                  });
                  item.previewUrl = warped;
                } catch (err) {
@@ -473,7 +474,8 @@ export function useCardScannerHook({ mode, initialPages: _initialPages, onAutosa
                 rotate: newCard.rotation,
                 filter: newCard.filter,
                 adjustments: { b: 0, c: 0, s: 0 },
-                scanMode: mode === 'idcard' ? 'card' : 'grid'
+                scanMode: mode === 'idcard' ? 'card' : 'grid',
+                imageId: imageId
               });
               newCard.previewUrl = warped;
             } catch (previewErr) {
@@ -718,7 +720,8 @@ export function useCardScannerHook({ mode, initialPages: _initialPages, onAutosa
           rotate: newCard.rotation,
           filter: newCard.filter,
           adjustments: { b: 0, c: 0, s: 0 },
-          scanMode: mode === 'idcard' ? 'card' : 'grid'
+          scanMode: mode === 'idcard' ? 'card' : 'grid',
+          imageId: imageId
         });
         newCard.previewUrl = warped;
       } catch (previewErr) {
@@ -847,7 +850,8 @@ export function useCardScannerHook({ mode, initialPages: _initialPages, onAutosa
             rotate: newCard.rotation,
             filter: newCard.filter,
             adjustments: { b: 0, c: 0, s: 0 },
-            scanMode: mode === 'idcard' ? 'card' : 'grid'
+            scanMode: mode === 'idcard' ? 'card' : 'grid',
+            imageId: imageId
           });
           newCard.previewUrl = warped;
         }

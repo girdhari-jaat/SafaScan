@@ -78,7 +78,8 @@ export async function processFinalImageOffThread(
   rotation: number,
   filter: any,
   adjustments: any,
-  sourceType?: string
+  sourceType?: string,
+  imageId?: string
 ): Promise<Blob> {
   const isShadowRemoveEnabled = typeof localStorage !== 'undefined' && localStorage.getItem("shadowRemoveEnabled") === "true";
   const enhancedAdjustments = {
@@ -87,7 +88,7 @@ export async function processFinalImageOffThread(
     autoAdjust: adjustments?.autoAdjust ?? isShadowRemoveEnabled,
   };
 
-  const hash = `process|${rotation}|${filter}|${JSON.stringify(corners)}|${JSON.stringify(enhancedAdjustments)}|${sourceType}`;
+  const hash = `process|${rotation}|${filter}|${JSON.stringify(corners)}|${JSON.stringify(enhancedAdjustments)}|${sourceType}|${imageId || ''}`;
   
   if (blobCache.has(hash)) {
     if (sourceImage instanceof ImageBitmap) {
@@ -177,7 +178,7 @@ export async function applyFilterOffThread(bitmap: ImageBitmap, filterName: stri
  */
 export async function warpPreview(
   bitmap: ImageBitmap, 
-  meta: { cropPoints: any; rotate: number; filter: string; adjustments: any; scanMode?: 'paper' | 'card' | 'grid' | 'idcard' | 'a4' | 'cnic' }
+  meta: { cropPoints: any; rotate: number; filter: string; adjustments: any; scanMode?: 'paper' | 'card' | 'grid' | 'idcard' | 'a4' | 'cnic'; imageId?: string }
 ): Promise<ImageBitmap> {
   const isShadowRemoveEnabled = typeof localStorage !== 'undefined' && localStorage.getItem("shadowRemoveEnabled") === "true";
   const enhancedMeta = {
@@ -189,7 +190,7 @@ export async function warpPreview(
     }
   };
 
-  const hash = `warp|${enhancedMeta.rotate}|${enhancedMeta.filter}|${JSON.stringify(enhancedMeta.cropPoints)}|${JSON.stringify(enhancedMeta.adjustments)}`;
+  const hash = `warp|${enhancedMeta.rotate}|${enhancedMeta.filter}|${JSON.stringify(enhancedMeta.cropPoints)}|${JSON.stringify(enhancedMeta.adjustments)}|${meta.imageId || ''}`;
   
   if (previewCache.has(hash)) {
     try { bitmap.close(); } catch (e) {}

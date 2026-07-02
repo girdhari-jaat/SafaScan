@@ -246,6 +246,11 @@ export default function App() {
     activeDoc,
     triggerToast,
   } = useAppHook();
+  
+  const activeDocIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    activeDocIdRef.current = activeDocId;
+  }, [activeDocId]);
 
   const [preloadedPdfFile, setPreloadedPdfFile] = React.useState<File | null>(null);
 
@@ -435,9 +440,10 @@ export default function App() {
 
   const handleHomeCapture = React.useCallback(
     (blob: Blob, isBatch: boolean, corners: any, forceCrop?: boolean, needsDetection?: boolean) => {
-      let docId = activeDocId;
+      let docId = activeDocIdRef.current;
       if (!docId) {
         docId = `doc_${crypto.randomUUID()}`;
+        activeDocIdRef.current = docId;
         const defaultTitle = `Document ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}`;
         const newDoc = {
           id: docId,
@@ -447,14 +453,12 @@ export default function App() {
           pageIds: [],
           tags: ["Scan"],
         };
-        setDocuments([newDoc, ...documents]);
+        setDocuments(prevDocs => [newDoc, ...prevDocs]);
         setActiveDocId(docId);
       }
       handleAddRawImagePage(blob, isBatch, corners, docId, forceCrop, undefined, needsDetection);
     },
     [
-      activeDocId,
-      documents,
       setDocuments,
       setActiveDocId,
       handleAddRawImagePage,

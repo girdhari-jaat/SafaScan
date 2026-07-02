@@ -107,7 +107,8 @@ const PageThumbnail = React.memo(function PageThumbnail({ page, className }: { p
             page.rotation,
             page.filter,
             page.adjustments,
-            'preview'
+            'preview',
+            page.originalImageId
           );
 
           if (isMounted && processedBlob) {
