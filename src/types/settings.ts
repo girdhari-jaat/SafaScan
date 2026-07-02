@@ -23,4 +23,5 @@ export interface AppSettings {
   customBackupUrl: string;
   uiLanguage: 'en' | 'ur' | 'es' | 'ar' | 'hi' | 'sd';
   offlineMode: boolean;
+  useNativeScanner: boolean;
 }

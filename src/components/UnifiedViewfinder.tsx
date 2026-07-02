@@ -146,6 +146,18 @@ export const UnifiedViewfinder = React.memo(
 
       const isGridActive = showGrid !== undefined ? showGrid : !!settings?.showGrid;
 
+      // Maintain refs of fast-changing values for the high-frequency animation loop
+      const detectedCornersRef = useRef(detectedCorners);
+      const autoDetectEnabledRef = useRef(settings?.autoDetectEnabled);
+
+      useEffect(() => {
+        detectedCornersRef.current = detectedCorners;
+      }, [detectedCorners]);
+
+      useEffect(() => {
+        autoDetectEnabledRef.current = settings?.autoDetectEnabled;
+      }, [settings?.autoDetectEnabled]);
+
       // Active live boundary overlay drawing loop inside UnifiedViewfinder
       const liveOverlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -191,28 +203,31 @@ export const UnifiedViewfinder = React.memo(
         const drawOverlay = () => {
           ctx.clearRect(0, 0, dtw, dth);
 
+          const currentCorners = detectedCornersRef.current;
+          const isAutoDetectActive = autoDetectEnabledRef.current !== false;
+
           // Only draw if auto-detect setting is active and corners are locked
           if (
-            detectedCorners &&
-            detectedCorners.tl &&
-            settings?.autoDetectEnabled !== false
+            currentCorners &&
+            currentCorners.tl &&
+            isAutoDetectActive
           ) {
             const video = videoRef.current;
             let p0 = {
-              x: (detectedCorners.tl.x / 100) * dtw,
-              y: (detectedCorners.tl.y / 100) * dth,
+              x: (currentCorners.tl.x / 100) * dtw,
+              y: (currentCorners.tl.y / 100) * dth,
             };
             let p1 = {
-              x: (detectedCorners.tr.x / 100) * dtw,
-              y: (detectedCorners.tr.y / 100) * dth,
+              x: (currentCorners.tr.x / 100) * dtw,
+              y: (currentCorners.tr.y / 100) * dth,
             };
             let p2 = {
-              x: (detectedCorners.br.x / 100) * dtw,
-              y: (detectedCorners.br.y / 100) * dth,
+              x: (currentCorners.br.x / 100) * dtw,
+              y: (currentCorners.br.y / 100) * dth,
             };
             let p3 = {
-              x: (detectedCorners.bl.x / 100) * dtw,
-              y: (detectedCorners.bl.y / 100) * dth,
+              x: (currentCorners.bl.x / 100) * dtw,
+              y: (currentCorners.bl.y / 100) * dth,
             };
 
             if (video && video.videoWidth && video.videoHeight) {
@@ -243,10 +258,10 @@ export const UnifiedViewfinder = React.memo(
                 };
               };
 
-              p0 = mapPoint(detectedCorners.tl);
-              p1 = mapPoint(detectedCorners.tr);
-              p2 = mapPoint(detectedCorners.br);
-              p3 = mapPoint(detectedCorners.bl);
+              p0 = mapPoint(currentCorners.tl);
+              p1 = mapPoint(currentCorners.tr);
+              p2 = mapPoint(currentCorners.br);
+              p3 = mapPoint(currentCorners.bl);
             }
 
             ctx.beginPath();
@@ -287,7 +302,7 @@ export const UnifiedViewfinder = React.memo(
           cancelAnimationFrame(animFrameId);
           resizeObserver.disconnect();
         };
-      }, [detectedCorners, settings?.autoDetectEnabled]);
+      }, [videoRef]);
 
       // Master watchdog to synchronize and monitor media stream playback on the video element
       useEffect(() => {

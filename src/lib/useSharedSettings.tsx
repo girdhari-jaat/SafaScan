@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   customBackupUrl: import.meta.env.VITE_BACKUP_SYNC_URL || "",
   uiLanguage: "en",
   offlineMode: true,
+  useNativeScanner: true,
 };
 
 const getInitialSettings = (): AppSettings => {
@@ -84,6 +85,7 @@ const getInitialSettings = (): AppSettings => {
     "isSettingsOpen",
     "hasSeededTutorial",
     "offlineMode",
+    "useNativeScanner",
   ];
 
   booleanKeys.forEach((key) => {

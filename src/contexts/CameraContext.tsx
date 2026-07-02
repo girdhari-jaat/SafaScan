@@ -113,86 +113,94 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let animationFrameId: number;
-    let lastRan = 0;
+    let active = true;
     let workerAPI: any = null;
 
     import('../utils/imageWorkerClient').then(mod => {
       workerAPI = mod;
+      if (active) {
+        runNextDetection();
+      }
     });
 
-    const loop = (timestamp: number) => {
+    const runNextDetection = async () => {
+      if (!active) return;
       const video = videoRef.current;
       if (video && video.readyState === 4 && workerAPI && shouldBeRunningRef.current) {
-        if (timestamp - lastRan >= 350) {
-          lastRan = timestamp;
-          const dw = 400;
-          const dh = Math.round(400 * (video.videoHeight / video.videoWidth));
-          
-          if (!(window as any)._isDetectingCornersGlobal) {
-            (window as any)._isDetectingCornersGlobal = true;
-            createImageBitmap(video, { resizeWidth: dw, resizeHeight: dh, resizeQuality: 'low' })
-              .then(async (bitmap) => {
-                try {
-                  const mode = settings.scannerSubTab === 'paper' ? 'paper' : (settings.scannerSubTab === 'idcard' ? 'card' : 'grid');
-                  const result = await workerAPI.detectCornersOffThread(bitmap, mode, true);
-                  const isDetected = !!(result && result.corners && result.corners.length === 4);
-                  
-                  if (isDetected !== (window as any)._lastWasDetected) {
-                    (window as any)._lastWasDetected = isDetected;
-                    if (isDetected) {
-                      addLog(`Geometric: ${mode.toUpperCase()} edges locked`);
-                    } else {
-                      addLog(`Geometric: Searching for ${mode} boundary...`);
-                    }
-                  }
+        const dw = 320;
+        const dh = Math.round(320 * (video.videoHeight / video.videoWidth));
+        
+        try {
+          const bitmap = await createImageBitmap(video, { resizeWidth: dw, resizeHeight: dh, resizeQuality: 'low' });
+          try {
+            const mode = settings.scannerSubTab === 'paper' ? 'paper' : (settings.scannerSubTab === 'idcard' ? 'card' : 'grid');
+            const result = await workerAPI.detectCornersOffThread(bitmap, mode, true);
+            const isDetected = !!(result && result.corners && result.corners.length === 4);
+            
+            if (isDetected !== (window as any)._lastWasDetected) {
+              (window as any)._lastWasDetected = isDetected;
+              if (isDetected) {
+                addLog(`Geometric: ${mode.toUpperCase()} edges locked`);
+              } else {
+                addLog(`Geometric: Searching for ${mode} boundary...`);
+              }
+            }
 
-                  if (isDetected) {
-                    const corners = result.corners!;
-                    const finalW = result.originalWidth || dw;
-                    const finalH = result.originalHeight || dh;
-                    let cornersPct: any;
-                    const isPortraitView = window.innerHeight > window.innerWidth;
-                    if (isPortraitView && video.videoWidth > video.videoHeight) {
-                      const pctArray = corners.map((c: any) => ({
-                        x: (c.x / finalW) * 100,
-                        y: (c.y / finalH) * 100
-                      }));
-                      const rotPct = pctArray.map((p: any) => ({
-                        x: 100 - p.y,
-                        y: p.x
-                      }));
-                      cornersPct = {
-                        tl: rotPct[3], tr: rotPct[0], br: rotPct[1], bl: rotPct[2]
-                      };
-                    } else {
-                      cornersPct = {
-                        tl: { x: (corners[0].x / finalW) * 100, y: (corners[0].y / finalH) * 100 },
-                        tr: { x: (corners[1].x / finalW) * 100, y: (corners[1].y / finalH) * 100 },
-                        br: { x: (corners[2].x / finalW) * 100, y: (corners[2].y / finalH) * 100 },
-                        bl: { x: (corners[3].x / finalW) * 100, y: (corners[3].y / finalH) * 100 }
-                      };
-                    }
-                    setDetectedCorners(cornersPct);
-                  } else {
-                    setDetectedCorners(null);
-                  }
-                } finally {
-                  bitmap.close();
-                }
-              })
-              .catch(() => setDetectedCorners(null))
-              .finally(() => {
-                (window as any)._isDetectingCornersGlobal = false;
-              });
+            if (isDetected) {
+              const corners = result.corners!;
+              const finalW = result.originalWidth || dw;
+              const finalH = result.originalHeight || dh;
+              let cornersPct: any;
+              const isPortraitView = window.innerHeight > window.innerWidth;
+              if (isPortraitView && video.videoWidth > video.videoHeight) {
+                const pctArray = corners.map((c: any) => ({
+                  x: (c.x / finalW) * 100,
+                  y: (c.y / finalH) * 100
+                }));
+                const rotPct = pctArray.map((p: any) => ({
+                  x: 100 - p.y,
+                  y: p.x
+                }));
+                cornersPct = {
+                  tl: rotPct[3], tr: rotPct[0], br: rotPct[1], bl: rotPct[2]
+                };
+              } else {
+                cornersPct = {
+                  tl: { x: (corners[0].x / finalW) * 100, y: (corners[0].y / finalH) * 100 },
+                  tr: { x: (corners[1].x / finalW) * 100, y: (corners[1].y / finalH) * 100 },
+                  br: { x: (corners[2].x / finalW) * 100, y: (corners[2].y / finalH) * 100 },
+                  bl: { x: (corners[3].x / finalW) * 100, y: (corners[3].y / finalH) * 100 }
+                };
+              }
+              if (active) {
+                setDetectedCorners(cornersPct);
+              }
+            } else {
+              if (active) {
+                setDetectedCorners(null);
+              }
+            }
+          } finally {
+            bitmap.close();
+          }
+        } catch (err) {
+          if (active) {
+            setDetectedCorners(null);
           }
         }
       }
-      animationFrameId = requestAnimationFrame(loop);
+      
+      if (active) {
+        setTimeout(() => {
+          if (active) {
+            requestAnimationFrame(runNextDetection);
+          }
+        }, 350);
+      }
     };
-    animationFrameId = requestAnimationFrame(loop);
+
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      active = false;
       setDetectedCorners(null);
     };
   }, [settings.autoDetectEnabled, isReady, cameraError, settings.scannerSubTab]);
@@ -484,7 +492,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
       let newStream;
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', ...resolution },
+          video: { facingMode: 'environment', focusMode: { ideal: 'continuous' }, ...resolution } as any,
           audio: false
         });
       } catch (err) {
@@ -494,7 +502,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
         }
         try {
           newStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
+            video: { facingMode: 'environment', focusMode: { ideal: 'continuous' } } as any,
             audio: false
           });
         } catch (err2) {
@@ -528,6 +536,17 @@ export function CameraProvider({ children }: { children: ReactNode }) {
             setSupportsTorch(!!capabilities.torch);
           } else {
             setSupportsTorch(true);
+          }
+
+          // Apply continuous focus constraint if supported by hardware
+          if (capabilities && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            track.applyConstraints({
+              advanced: [{ focusMode: 'continuous' } as any]
+            }).then(() => {
+              addLog("[CameraContext] Continuous focus constraint applied successfully");
+            }).catch(e => {
+              addLog(`[CameraContext] Failed to apply continuous focus: ${e}`);
+            });
           }
         } catch (e) {
           setSupportsTorch(true);

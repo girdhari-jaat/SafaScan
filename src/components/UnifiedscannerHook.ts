@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCamera } from '../contexts/CameraContext';
 import { addLog } from '../utils/renderStats';
+import { DocumentScannerService } from '../services/DocumentScannerService';
 
 export interface UnifiedScannerHookProps {
   onCapture?: (blob: Blob, autoCropped?: boolean) => void;
@@ -114,6 +115,31 @@ export function useUnifiedscannerHook({
   const handleCapture = useCallback(async (viewfinderRef: any) => {
     addLog(`[UnifiedscannerHook] handleCapture triggered: Ready=${isReady}, Viewfinder=${!!viewfinderRef?.current}`);
     if (isCapturingRef.current || isCapturing) return;
+
+    // Check if we should use the Native Google ML Kit Document Scanner on Android
+    if (settings.useNativeScanner && DocumentScannerService.isSupported()) {
+      addLog("[UnifiedscannerHook] Launching Google ML Kit Native Document Scanner...");
+      setIsCapturing(true);
+      isCapturingRef.current = true;
+      try {
+        const blobs = await DocumentScannerService.scan();
+        if (blobs && blobs.length > 0) {
+          addLog(`[UnifiedscannerHook] Native scanner returned ${blobs.length} images`);
+          blobs.forEach((blob) => {
+            if (onCapture) {
+              onCapture(blob, true);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("[UnifiedscannerHook] Native scanner failed:", err);
+        addLog(`[UnifiedscannerHook] Native scanner failed: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        setIsCapturing(false);
+        isCapturingRef.current = false;
+      }
+      return;
+    }
 
     if (settings.usePhoneCamera) {
       phoneCameraInputRef.current?.click();

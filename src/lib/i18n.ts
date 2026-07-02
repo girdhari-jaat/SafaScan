@@ -284,7 +284,9 @@ export const translations = {
     permanentlyRemoveMsg: 'Are you sure you want to permanently remove this page scan?',
     confirmDeleteBtn: 'Confirm Delete',
     fullscreen: 'Click to view full screen',
-    filters: 'Filters'
+    filters: 'Filters',
+    useNativeScanner: 'Use Native Scanner',
+    useNativeScannerDesc: 'Use Google ML Kit Native Scanner for document capture on Android.'
   },
   ur: {
     library: 'لائبریری',
@@ -424,7 +426,9 @@ export const translations = {
     permanentlyRemoveMsg: 'کیا آپ واقعی اس صفحہ اسکین کو مستقل طور پر حذف کرنا چاہتے ہیں؟',
     confirmDeleteBtn: 'حذف کرنے کی تصدیق کریں',
     fullscreen: 'پوری اسکرین دیکھنے کے لیے کلک کریں',
-    filters: 'فلٹرز'
+    filters: 'فلٹرز',
+    useNativeScanner: 'اصلی اسکینر استعمال کریں',
+    useNativeScannerDesc: 'اینڈرائیڈ پر دستاویز کیپچر کرنے کے لیے گوگل کا اصلی اسکینر استعمال کریں۔'
   },
   sd: {
     library: 'لائبريري',
@@ -564,7 +568,9 @@ export const translations = {
     permanentlyRemoveMsg: 'ڇا توھان واقعي ھن صفحي جي اسڪين کي مستقل طور تي ختم ڪرڻ چاھيو ٿا؟',
     confirmDeleteBtn: 'حذف ڪرڻ جي تصديق ڪريو',
     fullscreen: 'پوري اسڪرين ڏسڻ لاءِ ڪلڪ ڪريو',
-    filters: 'فلٽر'
+    filters: 'فلٽر',
+    useNativeScanner: 'اصلي اسڪينر استعمال ڪريو',
+    useNativeScannerDesc: 'اينڊرائيڊ تي دستاويز ڪيپچر ڪرڻ لاءِ گوگل جو اصلي اسڪينر استعمال ڪريو.'
   },
   es: {
     library: 'Biblioteca',

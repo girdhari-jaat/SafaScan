@@ -34,6 +34,7 @@ import { useSharedSettings } from '../lib/useSharedSettings';
 import { useTranslation, Language } from '../lib/i18n';
 import { clearDisplayCache } from '../utils/db';
 import { globalImageCache } from '../utils/globalImageCache';
+import { DocumentScannerService } from '../services/DocumentScannerService';
 
 interface SettingsProps {
   onClose: () => void;
@@ -450,6 +451,13 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onCloseToDefault, onInstal
             {/* 3. Smart Processing & Hardware Toggles */}
             <Section title={(t as any).smartProcessingAndOptics || "Smart Processing & Optics"} icon={Activity}>
               <div className="space-y-2.5">
+                <Toggle 
+                  label={(t as any).useNativeScanner || "Use Native Scanner"} 
+                  description={(t as any).useNativeScannerDesc || "Use Google ML Kit Native Scanner for document capture on Android."} 
+                  value={settings.useNativeScanner} 
+                  onToggle={() => updateSetting('useNativeScanner', !settings.useNativeScanner)}
+                  icon={ShieldCheck}
+                />
                 <Toggle 
                   label={t.shadowRemove || "Shadow Removal"} 
                   description={(t as any).shadowRemovalDesc || "Flatten lighting shadows on scanned items"} 
