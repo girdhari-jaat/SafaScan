@@ -4,7 +4,7 @@ import { addLog } from '../utils/renderStats';
 import { DocumentScannerService } from '../services/DocumentScannerService';
 
 export interface UnifiedScannerHookProps {
-  onCapture?: (blob: Blob, autoCropped?: boolean) => void;
+  onCapture?: (blob: Blob, autoCropped?: boolean, isBatchEnd?: boolean) => void;
   onIdCardCapture?: (front: Blob, back: Blob) => void;
   settings: any;
   initialMode?: 'paper' | 'idcard' | 'grid';
@@ -125,9 +125,10 @@ export function useUnifiedscannerHook({
         const blobs = await DocumentScannerService.scan();
         if (blobs && blobs.length > 0) {
           addLog(`[UnifiedscannerHook] Native scanner returned ${blobs.length} images`);
-          blobs.forEach((blob) => {
+          blobs.forEach((blob, idx) => {
             if (onCapture) {
-              onCapture(blob, true);
+              const isBatchEnd = idx === blobs.length - 1;
+              onCapture(blob, true, isBatchEnd);
             }
           });
         }

@@ -14,18 +14,22 @@ export class DocumentScannerService {
    * Launch the Google ML Kit Document Scanner on Android.
    * Returns an array of Blobs containing the scanned pages.
    */
-  public static async scan(): Promise<Blob[]> {
+  public static async scan(pageLimit?: number): Promise<Blob[]> {
     if (!this.isSupported()) {
       throw new Error('Native Document Scanner is only supported on Android Capacitor app.');
     }
 
     try {
       // Configure ML Kit scanner options
-      const options = {
+      const options: any = {
         galleryImportAllowed: true,
         resultFormats: 'JPEG' as const,
         scannerMode: 'FULL' as const,
       };
+
+      if (pageLimit !== undefined) {
+        options.pageLimit = pageLimit;
+      }
 
       const result = await DocumentScanner.scanDocument(options);
 

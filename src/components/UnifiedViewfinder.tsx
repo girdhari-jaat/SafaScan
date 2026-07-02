@@ -28,6 +28,7 @@ import {
   Smartphone,
   Frame,
   Activity,
+  ShieldCheck,
 } from "lucide-react";
 import { useCamera } from "../contexts/CameraContext";
 import { PAPER_RATIOS, CARD_RATIOS } from "../constants";
@@ -589,7 +590,7 @@ export const UnifiedViewfinder = React.memo(
                     className="absolute top-[calc(100%+12px)] right-0 w-72 bg-[var(--bg-card)]/95 border border-[var(--border-color)] backdrop-blur-2xl rounded-[32px] p-4 z-[100] shadow-2xl flex flex-col gap-1 text-[var(--text-primary)]"
                   >
 
-                    <div className="max-h-[440px] overflow-y-auto pr-1 flex flex-col gap-0.5 scrollbar-none">
+                    <div className="max-h-[485px] overflow-y-auto pr-1 flex flex-col gap-0.5 scrollbar-none">
                       <ToggleRow
                         icon={<Grid3X3 size={16} />}
                         label="Grid Lines"
@@ -618,6 +619,14 @@ export const UnifiedViewfinder = React.memo(
                         value={!!settings?.autoCrop}
                         onChange={() =>
                           onUpdateSetting?.("autoCrop", !settings?.autoCrop)
+                        }
+                      />
+                      <ToggleRow
+                        icon={<ShieldCheck size={16} />}
+                        label="Native Scanner"
+                        value={!!settings?.useNativeScanner}
+                        onChange={() =>
+                          onUpdateSetting?.("useNativeScanner", !settings?.useNativeScanner)
                         }
                       />
                       <ToggleRow

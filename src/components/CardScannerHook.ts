@@ -4,6 +4,7 @@ import { useSharedSettings } from '../lib/useSharedSettings';
 import { useCamera } from '../contexts/CameraContext';
 import { CARD_RATIOS } from '../constants';
 import { saveImageBlob, getImageBlob, deleteImageBlob } from '../utils/db';
+import { DocumentScannerService } from '../services/DocumentScannerService';
 
 // Web Audio API Shutter Click Synthesizer
 const playShutterSound = () => {
@@ -380,6 +381,131 @@ export function useCardScannerHook({ mode, initialPages: _initialPages, onAutosa
 
   const captureFrame = useCallback(async () => {
     if (isCapturing) return;
+
+    // Check if we should use the Native Google ML Kit Document Scanner on Android
+    if (settings.useNativeScanner && DocumentScannerService.isSupported()) {
+      const remainingPages = slotCount - slotIndex;
+      if (remainingPages <= 0) return;
+
+      setIsCapturing(true);
+      try {
+        const blobs = await DocumentScannerService.scan(remainingPages);
+        if (blobs && blobs.length > 0) {
+          const { warpPreview } = await import('../utils/imageWorkerClient');
+
+          for (let i = 0; i < blobs.length; i++) {
+            const currentSlot = slotIndex + i;
+            if (currentSlot >= slotCount) break;
+
+            const rawBlob = blobs[i];
+            
+            // Generate unique image ID
+            const imageId = `img_${crypto.randomUUID()}`;
+            await saveImageBlob(imageId, rawBlob);
+
+            if (cardsRef.current[currentSlot]) {
+              const oldCard = cardsRef.current[currentSlot]!;
+              if (oldCard.previewUrl && typeof oldCard.previewUrl !== 'string') {
+                try { (oldCard.previewUrl as ImageBitmap).close(); } catch(e) {}
+              }
+              if (oldCard.imageId) {
+                deleteImageBlob(oldCard.imageId).catch(() => {});
+              }
+            }
+
+            // Default corners (full frame or auto cropped since ML Kit handles cropping natively)
+            let initialCorners: PageCorners = { tl: { x: 0, y: 0 }, tr: { x: 100, y: 0 }, br: { x: 100, y: 100 }, bl: { x: 0, y: 100 } };
+            
+            if (settings.autoCrop) {
+              try {
+                const { detectCornersOffThread } = await import('../utils/imageWorkerClient');
+                const tempBmp = await createImageBitmap(rawBlob);
+                const detected = await detectCornersOffThread(tempBmp, mode === 'idcard' ? 'card' : 'grid', !settings.autoDetectEnabled);
+                if (detected && detected.corners) {
+                  const w = detected.originalWidth;
+                  const h = detected.originalHeight;
+                  initialCorners = {
+                    tl: { x: (detected.corners[0].x / w) * 100, y: (detected.corners[0].y / h) * 100 },
+                    tr: { x: (detected.corners[1].x / w) * 100, y: (detected.corners[1].y / h) * 100 },
+                    br: { x: (detected.corners[2].x / w) * 100, y: (detected.corners[2].y / h) * 100 },
+                    bl: { x: (detected.corners[3].x / w) * 100, y: (detected.corners[3].y / h) * 100 },
+                  };
+                }
+              } catch (err) {
+                console.warn('Auto corner detection failed on native card capture:', err);
+              }
+            }
+
+            const newCard: CardData = {
+              imageId,
+              corners: initialCorners,
+              filter: 'original',
+              adjustments: { brightness: 0, contrast: 0, saturation: 0, sharpness: 0, shadows: 0, temperature: 0 },
+              rotation: 0,
+              previewUrl: ''
+            };
+
+            // Generate preview for slot immediately
+            try {
+              const tempBmp = await createImageBitmap(rawBlob);
+              const w = tempBmp.width;
+              const h = tempBmp.height;
+
+              const maxDim = 800;
+              let pBitmap: ImageBitmap;
+              if (w > h) {
+                pBitmap = await createImageBitmap(tempBmp, {
+                  resizeWidth: maxDim,
+                  resizeHeight: Math.round((h * maxDim) / w),
+                  resizeQuality: isLowMemory ? 'low' : 'medium'
+                });
+              } else {
+                pBitmap = await createImageBitmap(tempBmp, {
+                  resizeHeight: maxDim,
+                  resizeWidth: Math.round((w * maxDim) / h),
+                  resizeQuality: isLowMemory ? 'low' : 'medium'
+                });
+              }
+              tempBmp.close();
+
+              const warped = await warpPreview(pBitmap, {
+                cropPoints: newCard.corners,
+                rotate: newCard.rotation,
+                filter: newCard.filter,
+                adjustments: { b: 0, c: 0, s: 0 },
+                scanMode: mode === 'idcard' ? 'card' : 'grid'
+              });
+              newCard.previewUrl = warped;
+            } catch (previewErr) {
+              console.warn('Failed to generate initial preview bitmap for native card capture:', previewErr);
+            }
+
+            cardsRef.current[currentSlot] = newCard;
+            setFilledSlots(prev => {
+              const next = [...prev];
+              next[currentSlot] = 'filled';
+              return next;
+            });
+          }
+
+          setPdfReady(true);
+
+          const nextIdx = cardsRef.current.findIndex(c => !c);
+          if (nextIdx !== -1) {
+            setSlotIndex(nextIdx);
+          } else {
+            setSlotIndex(slotCount);
+          }
+          
+          await persistSession();
+        }
+      } catch (err) {
+        console.error("[CardScannerHook] Native scanner failed:", err);
+      } finally {
+        setIsCapturing(false);
+      }
+      return;
+    }
 
     if (settings.usePhoneCamera) {
       fileInputRef.current?.click();

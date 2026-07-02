@@ -423,10 +423,12 @@ const UnifiedScanner: React.FC<UnifiedScannerProps> = ({
     phoneCameraInputRef,
     handlePhoneCameraFileChange,
   } = useUnifiedscannerHook({
-    onCapture: (blob, autoCropped) => {
-       const needsDetection = Boolean(settings.autoDetectEnabled || settings.autoCrop || settings.showGrid);
-       onCapture(blob, settings.batchScan, null, autoCropped ? false : undefined, needsDetection);
-       if (!settings.batchScan) {
+    onCapture: (blob, autoCropped, isBatchEnd) => {
+       const needsDetection = autoCropped ? false : Boolean(settings.autoDetectEnabled || settings.autoCrop || settings.showGrid);
+       const isLastOfBatch = isBatchEnd !== false;
+       const isBatchModeForThisImage = settings.batchScan || !isLastOfBatch;
+       onCapture(blob, isBatchModeForThisImage, null, autoCropped ? false : undefined, needsDetection);
+       if (!isBatchModeForThisImage) {
          onDone();
        }
     },
