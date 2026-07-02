@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useCamera } from "../contexts/CameraContext";
 import { PAPER_RATIOS, CARD_RATIOS } from "../constants";
+import { DocumentScannerService } from "../services/DocumentScannerService";
 
 interface UnifiedViewfinderProps {
   mode: "paper" | "idcard" | "grid";
@@ -387,7 +388,8 @@ export const UnifiedViewfinder = React.memo(
 
         if (!isShutterDraggable) {
           addLog("[UnifiedViewfinder] Triggering standard image capture");
-          if (!isCapturing && (isCameraReady || settings?.usePhoneCamera)) {
+          const isNativeScannerSupported = settings?.useNativeScanner && DocumentScannerService.isSupported();
+          if (!isCapturing && (isCameraReady || settings?.usePhoneCamera || isNativeScannerSupported)) {
             onCaptureClick();
           }
         }
@@ -413,7 +415,8 @@ export const UnifiedViewfinder = React.memo(
       // Listen for Bottom Navigation Bar Tab presses to trigger image capture
       useEffect(() => {
         const handleTabScannerPressed = () => {
-          if ((isCameraReady || settings?.usePhoneCamera) && !isCapturing && !hideShutter) {
+          const isNativeScannerSupported = settings?.useNativeScanner && DocumentScannerService.isSupported();
+          if ((isCameraReady || settings?.usePhoneCamera || isNativeScannerSupported) && !isCapturing && !hideShutter) {
             addLog("[UnifiedViewfinder] Capture triggered via Bottom Navigation Bar tab press!");
             onCaptureClick();
           }
@@ -423,7 +426,7 @@ export const UnifiedViewfinder = React.memo(
         return () => {
           window.removeEventListener("scanner-tab-pressed", handleTabScannerPressed);
         };
-      }, [isCameraReady, settings?.usePhoneCamera, isCapturing, hideShutter, onCaptureClick]);
+      }, [isCameraReady, settings?.usePhoneCamera, settings?.useNativeScanner, isCapturing, hideShutter, onCaptureClick]);
       const [isFlashing, setIsFlashing] = useState(false);
       const [isSettingsOpen, setIsSettingsOpen] = useState(false);
       
@@ -890,7 +893,7 @@ export const UnifiedViewfinder = React.memo(
                     onPointerDown={handleShutterPointerDown}
                     onPointerUp={handleShutterPointerUp}
                     onPointerCancel={handleShutterPointerCancel}
-                    disabled={isCapturing || (!isCameraReady && !settings?.usePhoneCamera)}
+                    disabled={isCapturing || (!isCameraReady && !settings?.usePhoneCamera && !(settings?.useNativeScanner && DocumentScannerService.isSupported()))}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`w-16 h-16 rounded-full flex items-center justify-center bg-transparent border-[4px] relative transition-all select-none ${
@@ -898,7 +901,7 @@ export const UnifiedViewfinder = React.memo(
                         ? "border-[var(--primary)] shadow-[0_0_20px_var(--primary-faint)] cursor-move" 
                         : "border-[var(--text-primary)] shadow-xl cursor-pointer"
                     } ${
-                      isCapturing || (!isCameraReady && !settings?.usePhoneCamera)
+                      isCapturing || (!isCameraReady && !settings?.usePhoneCamera && !(settings?.useNativeScanner && DocumentScannerService.isSupported()))
                         ? "opacity-50 cursor-not-allowed"
                         : ""
                     }`}
