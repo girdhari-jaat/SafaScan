@@ -455,7 +455,7 @@ export function CardScanner({
 
         {/* Slots Sidebar / Bottom bar */}
         <div
-          className={`bg-[var(--bg-primary)] flex flex-col z-50 overflow-hidden ${isSlotsVisible ? "fixed md:relative inset-0 md:inset-auto h-full w-full md:w-96 border-[var(--border-color)] md:border-t-0 md:border-l" : "hidden md:flex md:min-w-0 md:w-0 md:h-full shrink-0 border-0"}`}
+          className={`bg-[var(--bg-primary)] flex flex-col z-50 overflow-hidden ${isSlotsVisible ? "fixed md:relative inset-0 md:inset-auto h-full w-full md:w-96 border-[var(--border-color)] md:border-t-0 md:border-l pt-[env(safe-area-inset-top,0px)] md:pt-0" : "hidden md:flex md:min-w-0 md:w-0 md:h-full shrink-0 border-0"}`}
         >
           {isSlotsVisible && (
             <>
@@ -718,7 +718,7 @@ export function CardScanner({
 
         {/* Slots Sidebar / Bottom bar */}
         <div
-          className={`bg-[var(--bg-primary)] flex flex-col z-50 overflow-hidden ${isSlotsVisible ? "fixed md:relative inset-0 md:inset-auto h-full w-full md:w-96 border-[var(--border-color)] md:border-t-0 md:border-l" : "hidden md:flex md:min-w-0 md:w-0 md:h-full shrink-0 border-0"}`}
+          className={`bg-[var(--bg-primary)] flex flex-col z-50 overflow-hidden ${isSlotsVisible ? "fixed md:relative inset-0 md:inset-auto h-full w-full md:w-96 border-[var(--border-color)] md:border-t-0 md:border-l pt-[env(safe-area-inset-top,0px)] md:pt-0" : "hidden md:flex md:min-w-0 md:w-0 md:h-full shrink-0 border-0"}`}
         >
           {isSlotsVisible && (
             <>

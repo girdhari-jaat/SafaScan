@@ -61,6 +61,7 @@ export function generatePageHash(page: any): string {
   if (!page) return '';
   const parts = [
     page.id,
+    page.originalImageId || page.imageId || '',
     page.rotation || 0,
     page.filter || 'none',
     JSON.stringify(page.corners),
